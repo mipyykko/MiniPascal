@@ -12,6 +12,7 @@ namespace Common
         Type, // simple, array?
         BlockStatement,
         Statement,
+        StatementList,
         AssignmentStatement,
         CallStatement,
         ReturnStatement,
@@ -20,10 +21,13 @@ namespace Common
         AssertStatement,
         IfStatement,
         WhileStatement,
+        Expression,
+        Arguments,
         SimpleExpression,
         Term,
         Factor,
         Variable,
+        VariableList,
         Operator,
         Operand,
         Sign

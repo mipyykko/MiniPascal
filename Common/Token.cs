@@ -49,8 +49,29 @@ namespace Common
             ["procedure"] = KeywordType.Procedure,
             ["function"] = KeywordType.Function,
             ["program"] = KeywordType.Program,
-            ["assert"] = KeywordType.Assert
+            ["assert"] = KeywordType.Assert,
+            ["return"] = KeywordType.Return
         };
+
+        public static PrimitiveType TokenToPrimitiveType(TokenType tt) =>
+            tt switch
+            {
+                TokenType.IntegerValue => PrimitiveType.Integer,
+                TokenType.RealValue => PrimitiveType.Real,
+                TokenType.StringValue => PrimitiveType.String,
+                TokenType.BooleanValue => PrimitiveType.Boolean,
+                _ => PrimitiveType.Void
+        };
+
+        public static PrimitiveType TokenContentToPrimitiveType(string s) =>
+            s switch
+            {
+                "integer" => PrimitiveType.Integer,
+                "real" => PrimitiveType.Real,
+                "string" => PrimitiveType.String,
+                "boolean" => PrimitiveType.Boolean,
+                _ => PrimitiveType.Void
+            };
         
         public TokenType Type { get; private set; }
         public KeywordType KeywordType { get; private set; }

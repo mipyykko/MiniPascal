@@ -20,5 +20,6 @@ namespace Common
         Function,
         Program,
         Assert,
+        Return,
     }
 }

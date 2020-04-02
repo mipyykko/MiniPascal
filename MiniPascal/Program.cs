@@ -1,6 +1,7 @@
 ﻿using System;
 using Scan;
 using Common;
+using Parse;
 
 namespace MiniPascal
 {
@@ -34,10 +35,10 @@ while i <= 19 do writeln (M (i));
 end. ";
             Context.Source = Text.Of(program);
             var s = new Scanner();
-            while (!Context.Source.IsExhausted)
-            {
-                Console.WriteLine(s.GetNextToken());
-            }
+            var p = new Parser(s);
+
+            var v = p.Program();
+            Console.WriteLine(v.AST());
         }
     }
 }
