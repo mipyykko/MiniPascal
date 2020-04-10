@@ -34,7 +34,7 @@ while i <= 19 do writeln (F (i));
 while i <= 19 do writeln (M (i));
 end. ";
             var program2 = @"program SwapAndSumThem;
-function Sum (data : array [] of integer) : integer;
+function Sum (data : array [] of integer, kissa : integer, koira: string) : integer;
 begin
 var i, sum : integer;
  i := 0; sum := 0;

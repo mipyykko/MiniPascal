@@ -98,6 +98,11 @@ namespace Common
             Sign*/,
         Identifier,
         SignTerm,
-        ArrayAssignmentStatement
+        ArrayAssignmentStatement,
+        DeclarationBlock,
+        FunctionProcedureDeclaration,
+        ProcedureDeclaration,
+        FunctionDeclaration,
+        DeclarationBlockCont
     }
 }

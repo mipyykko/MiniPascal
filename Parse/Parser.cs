@@ -1,11 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Linq;
 using AST;
 using Common;
 using Scan;
-using Common;
 using Rule = Common.Rule;
 using StatementType = Common.StatementType;
 
@@ -42,6 +40,14 @@ namespace Parse
             StatementType.MultiplyingOperator,
             StatementType.RelationalOperator
         };
+
+        private static string[] types =
+        {
+            "integer",
+            "real",
+            "string",
+            "boolean"
+        };
         
         public bool MatchStack(dynamic a, Token b)
         {
@@ -59,9 +65,13 @@ namespace Parse
                 return a == b.KeywordType;
             }
 
-            if (a is StatementType && operators.Contains((StatementType) a) && b.Type == TokenType.Operator)
+            if (a is StatementType st)
             {
-                return true;
+                if ((operators.Contains(st) && b.Type == TokenType.Operator)) // ||
+                    // (st == StatementType.SimpleType && b.Type == TokenType.Identifier && types.Contains(b.Content)))
+                {
+                    return true;
+                }
             }
 
             return false; 
@@ -128,11 +138,27 @@ namespace Parse
             
             var top = Stack.Peek();
 
-            dynamic toMatch = _inputToken.Type == TokenType.Keyword
+            dynamic toMatch = _inputToken.Type;
+
+            if (InputTokenType == TokenType.Keyword)
+            {
+                toMatch = InputTokenKeywordType;
+            } else if (InputTokenType == TokenType.Operator ||
+                       (InputTokenType == TokenType.Identifier && 
+                        (top == StatementType.Type || 
+                         top == StatementType.SimpleType || 
+                         top == StatementType.TypeId)))
+            {
+                toMatch = InputTokenContent;
+            }
+
+            
+            /*dynamic toMatch = _inputToken.Type == TokenType.Keyword
                 ? (dynamic) _inputToken.KeywordType
                 : (dynamic) _inputToken.Type == TokenType.Operator
                     ? (dynamic) _inputToken.Content
                     : _inputToken.Type;
+            */
             
             if (!Predictions.ContainsKey(top))
             {

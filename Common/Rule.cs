@@ -9,7 +9,7 @@ namespace Common
     {
         public StatementType Name { get; private set; }
         public Production Production { get; private set; }
-        public Parameters Parameters { get; private set; }
+        public Collect Collect { get; private set; }
         public Func<dynamic[], dynamic> GathererFn { get; private set; }
         public Gatherer Gatherer => Gatherer.Of(this);
 
@@ -17,17 +17,17 @@ namespace Common
         {
         }
 
-        private Rule(StatementType name, Production production, Parameters parameters, Func<dynamic[], dynamic> gathererFn)
+        private Rule(StatementType name, Production production, Collect collect, Func<dynamic[], dynamic> gathererFn)
         {
             Name = name;
             Production = production;
-            Parameters = parameters;
+            Collect = collect;
             GathererFn = gathererFn == null ? (dynamic[] p) => null : gathererFn;
         }
 
 
-        public static Rule Of(StatementType name, Production production, Parameters parameters, Func<dynamic[], dynamic> gathererFn) =>
-            new Rule(name, production, parameters, gathererFn);
+        public static Rule Of(StatementType name, Production production, Collect collect, Func<dynamic[], dynamic> gathererFn) =>
+            new Rule(name, production, collect, gathererFn);
 
         public override string ToString()
         {
@@ -41,22 +41,22 @@ namespace Common
         private Func<dynamic[], dynamic> Fn;
 
         private readonly List<dynamic> Collected = new List<dynamic>();
-        public bool AllCollected => paramIdx == Rule.Parameters.Items.Length;
+        public bool AllCollected => paramIdx == Rule.Collect.Items.Length;
 
         private int paramIdx = 0;
         
         public void Add(dynamic item)
         {
-            if (Rule.Parameters.Items.Length != Rule.Production.Items.Length)
+            if (Rule.Collect.Items.Length != Rule.Production.Items.Length)
             {
                 throw new Exception($"illegal rule {Rule}");
             }
-            if (Rule.Parameters.Items.Length > 0 && paramIdx >= Rule.Parameters.Items.Length)
+            if (Rule.Collect.Items.Length > 0 && paramIdx >= Rule.Collect.Items.Length)
             {
                 throw new Exception($"too many params {Rule} - collected {string.Join(", ", Collected.ToArray())}, got {item}");
             }
 
-            var currRule = Rule.Parameters[paramIdx];
+            var currRule = Rule.Collect[paramIdx];
             
             Console.WriteLine($"Waiting for {Rule.Production[paramIdx]}, got {item}");
             if (currRule)

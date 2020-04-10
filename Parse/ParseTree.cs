@@ -15,10 +15,18 @@ namespace Parse
             {
                 //Token = p[0],
                 Id = p[0],
-                Block = p[1]
+                DeclarationBlock = p[1],
+                MainBlock = p[2]
             };
         }
 
+        /*public static Node DeclarationBlock(dynamic[] p)
+        {
+            var nodeList = new List<Node>();
+            
+            
+        }*/
+        
         public static Node Identifier(dynamic[] p)
         {
             return new IdentifierNode
@@ -88,8 +96,14 @@ namespace Parse
 
         public static Node VarDeclaration(dynamic[] p)
         {
-            var ids = (List<IdentifierNode>) p[0];
-            var type = p[1];
+            var ids = new List<IdentifierNode>();
+            
+            while (p.Length > 1)
+            {
+                ids.Add(p[0]);
+                p = p.Skip(1).ToArray();
+            }
+            var type = p[0];
             
             foreach (var id in ids)
             {
@@ -102,14 +116,75 @@ namespace Parse
             };
         }
 
+        public static Node FunctionDeclaration(dynamic[] p)
+        {
+            var id = p[0];
+            var parameters = p[1];
+            var type = p[2];
+            var block = p[3];
+
+            return new FunctionDeclarationNode
+            {
+                Id = id,
+                Parameters = parameters,
+                Statement = block,
+                Type = type
+            };
+        }
+
+        public static Node ProcedureDeclaration(dynamic[] p)
+        {
+            var id = p[0];
+            var parameters = p[1];
+            var block = p[2];
+
+            return new ProcedureDeclarationNode
+            {
+                Id = id,
+                Parameters = parameters,
+                Statement = block,
+            };
+        }
+
+        public static List<ParameterNode> Parameters(dynamic[] p)
+        {
+            var ids = new List<ParameterNode>();
+
+            var reference = p[0] is KeywordType && p[0] == KeywordType.Var;
+
+            if (reference)
+            {
+                p = p.Skip(1).ToArray();
+            }
+
+            var id = (IdentifierNode) p[0];
+            var type = p[1];
+
+            id.Type = type;
+            
+            var node = new ParameterNode
+            {
+                Id = id,
+                Reference = reference
+            };
+
+            ids.Add(node);
+            
+            if (p.Length > 2 && p[2] is List<ParameterNode> optParameters)
+            {
+                ids.AddRange(optParameters.Where(p => p != null));
+            }
+
+            return ids;
+        }
+        
         public static List<IdentifierNode> Ids(dynamic[] p)
         {
             var nodeList = new List<IdentifierNode>();
-            nodeList.Add(p[0]);
-                
-            if (p.Length > 1 && p[1] is List<IdentifierNode> ids)
+
+            foreach (var n in p.Where(node => node != null))
             {
-                ids.ForEach(id => nodeList.Add(id));
+                nodeList.Add(n);
             }
 
             return nodeList;
@@ -140,9 +215,8 @@ namespace Parse
 
         public static Node ArrayType(dynamic[] p)
         {
-            var typeCont = p[0];
-            var type = typeCont[0] is SimpleTypeNode ? typeCont[0] : typeCont[1];
-            var size = typeCont[0] is SimpleTypeNode ? NoOpStatement : typeCont[0];
+            var type = p[0] is SimpleTypeNode ? p[0] : p[1];
+            var size = p[0] is SimpleTypeNode ? NoOpStatement : p[0];
             
             return new ArrayTypeNode
             {

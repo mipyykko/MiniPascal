@@ -41,16 +41,18 @@ namespace AST
         public override string Name => "Program";
 
         public Node Id;
-        public Node Block;
+        public List<Node> DeclarationBlock;
+        public Node MainBlock;
         
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string AST(int depth = 0)
         {
+            // TODO: add declarationblock
             return $"{Spaces(depth)}[{Name}\n" +
                    $"{Id.AST(depth + 1)}" +
-                   $"{Block.AST(depth + 1)}{Spaces(depth)}]\n";
+                   $"{MainBlock.AST(depth + 1)}{Spaces(depth)}]\n";
         }
     }
     public class StatementListNode : Node
@@ -370,6 +372,11 @@ namespace AST
         
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
+
+        public override string ToString()
+        {
+            return Token?.Content ?? "";
+        }
 
         public override string AST(int depth = 0)
         {
