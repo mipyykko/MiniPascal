@@ -115,5 +115,37 @@ namespace Common
             t8 = items.Length > 8 ? (T8) items[8] : default;
             t9 = items.Length > 9 ? (T9) items[9] : default;
         }
+        
+        public static IEnumerable<T> Flatten<T>(this IEnumerable<T> @this) {
+            foreach (var item in @this) {
+                if (item is IEnumerable<T>) {
+                    foreach (var subitem in Flatten((IEnumerable<T>)item)) {
+                        yield return subitem;
+                    }
+                }
+                else yield return item;
+            }
+        }
     }
+    
+    public class DefaultDictionary<TKey, TValue> : Dictionary<TKey, TValue> where TValue : new()
+    {
+        public new TValue this[TKey key]
+        {
+            get
+            {
+                TValue val;
+                if (TryGetValue(key, out val)) return val;
+
+                val = new TValue();
+                Add(key, val);
+
+                return val;
+            }
+            set => base[key] = value;
+        }
+    }
+    
+    
 }
+

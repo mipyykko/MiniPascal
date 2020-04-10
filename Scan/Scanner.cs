@@ -62,6 +62,9 @@ namespace Scan
                     var kw = Token.KeywordTypes.TryGetValueOrDefault(atom);
 
                     if (kw != KeywordType.Unknown) return Token.Of(TokenType.Keyword, kw, atom, GetSourceInfo(atom));
+                    if (new[] {"true", "false"}.Includes(atom.ToLower()))
+                        return Token.Of(TokenType.BooleanValue, atom, GetSourceInfo(atom));
+                    
                     return Token.Of(TokenType.Identifier, atom, GetSourceInfo(atom));
                 }
                 case TokenType.Unknown:

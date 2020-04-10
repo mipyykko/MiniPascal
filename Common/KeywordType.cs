@@ -21,5 +21,8 @@ namespace Common
         Program,
         Assert,
         Return,
+        Read,
+        WriteLn,
+        Size
     }
 }
