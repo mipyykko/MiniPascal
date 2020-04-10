@@ -97,7 +97,7 @@ namespace AST
     {
         public override string Name => "Call";
 
-        public List<ExpressionNode> Arguments;
+        public List<Node> Arguments; // ExpressionNode
         
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
@@ -209,6 +209,11 @@ namespace AST
         
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
+
+        public override string ToString()
+        {
+            return Token.Content;
+        }
 
         public override string AST(int depth = 0)
         {
@@ -460,7 +465,7 @@ namespace AST
     {
         public override string Name => "WriteStatement";
 
-        public List<ExpressionNode> Arguments;
+        public List<Node> Arguments; // ExpressionNode
 
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);

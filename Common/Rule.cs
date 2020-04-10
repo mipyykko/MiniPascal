@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Common;
 
 namespace Common
@@ -9,23 +10,24 @@ namespace Common
         public StatementType Name { get; private set; }
         public Production Production { get; private set; }
         public Parameters Parameters { get; private set; }
-        public Gatherer Gatherer { get; private set; }
+        public Func<dynamic[], dynamic> GathererFn { get; private set; }
+        public Gatherer Gatherer => Gatherer.Of(this);
 
         public Rule()
         {
         }
 
-        private Rule(StatementType name, Production production, Parameters parameters, Gatherer gatherer)
+        private Rule(StatementType name, Production production, Parameters parameters, Func<dynamic[], dynamic> gathererFn)
         {
             Name = name;
             Production = production;
             Parameters = parameters;
-            Gatherer = gatherer;
-            if (Gatherer != null) Gatherer.Rule = this;
+            GathererFn = gathererFn == null ? (dynamic[] p) => null : gathererFn;
         }
 
-        public static Rule Of(StatementType name, Production production, Parameters parameters, Gatherer gatherer) =>
-            new Rule(name, production, parameters, gatherer);
+
+        public static Rule Of(StatementType name, Production production, Parameters parameters, Func<dynamic[], dynamic> gathererFn) =>
+            new Rule(name, production, parameters, gathererFn);
 
         public override string ToString()
         {
@@ -42,13 +44,14 @@ namespace Common
         public bool AllCollected => paramIdx == Rule.Parameters.Items.Length;
 
         private int paramIdx = 0;
+        
         public void Add(dynamic item)
         {
             if (Rule.Parameters.Items.Length != Rule.Production.Items.Length)
             {
                 throw new Exception($"illegal rule {Rule}");
             }
-            if (Rule.Parameters.Items.Length > 1 && paramIdx >= Rule.Parameters.Items.Length)
+            if (Rule.Parameters.Items.Length > 0 && paramIdx >= Rule.Parameters.Items.Length)
             {
                 throw new Exception($"too many params {Rule} - collected {string.Join(", ", Collected.ToArray())}, got {item}");
             }
@@ -70,12 +73,16 @@ namespace Common
             {
                 Console.WriteLine($"Result of {Rule}: {string.Join(", ", Collected.ToArray())}");
 
-                return Fn(Collected.ToArray());
+                return Rule.GathererFn(Collected.Flatten().ToArray());;
             }
         }
 
-        private Gatherer(Func<dynamic[], dynamic> fn) => Fn = fn;
-        public static Gatherer Of(Func<dynamic[], dynamic> fn) => new Gatherer(fn);
+        private Gatherer(Rule rule)
+        {
+            Rule = rule;
+        }
+
+        public static Gatherer Of(Rule rule) => new Gatherer(rule);
 
         public override string ToString()
         {

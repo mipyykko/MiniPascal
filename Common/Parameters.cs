@@ -7,7 +7,7 @@ namespace Common
 
         private Parameters(bool[] items) => Items = items;
         public static Parameters Of(params bool[] values) => new Parameters(values);
-        public static Parameters NoParameters => Parameters.Of();
+        public static Parameters NoParameters => Of(false);
 
     }
 }

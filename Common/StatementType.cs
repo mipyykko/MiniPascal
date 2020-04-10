@@ -97,6 +97,7 @@ namespace Common
             Operand,
             Sign*/,
         Identifier,
-        SignTerm
+        SignTerm,
+        ArrayAssignmentStatement
     }
 }

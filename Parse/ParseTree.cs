@@ -9,40 +9,42 @@ namespace Parse
 {
     public static class ParseTree
     {
-        static Scanner Scanner => Context.Scanner;
-
-        public static Node Program(dynamic[] p)
+        public static dynamic Program(dynamic[] p)
         {
             return new ProgramNode
             {
                 //Token = p[0],
-                Id = new IdentifierNode
-                {
-                    Type = new SimpleTypeNode
-                    {
-                        PrimitiveType = PrimitiveType.String
-                    },
-                    Token = p[0]
-                },
+                Id = p[0],
                 Block = p[1]
             };
         }
 
+        public static Node Identifier(dynamic[] p)
+        {
+            return new IdentifierNode
+            {
+                Token = p[0]
+            };
+        }
+        
         public static Node BlockStatement(dynamic[] p)
         {
             return new StatementListNode
             {
                 Left = p[0],
-                Right = p[1]
+                Right = p.Length > 1 ? p[1] : NoOpStatement
             };
         }
 
         public static Node AssignOrCallStatement(dynamic[] p)
         {
             Node id = p[0];
-            IdNode n = p[1];
+            var n = p[1];
 
-            n.Id = id;
+            if (n is IdNode)
+            {
+                n.Id = id;
+            }
 
             return n;
         }
@@ -50,9 +52,10 @@ namespace Parse
         public static Node CallOrVariable(dynamic[] p)
         {
             Node id = p[0];
-            IdNode n = p[1];
+            var n = p[1];
 
-            n.Id = id;
+            if (n is IdNode)
+                n.Id = id;
 
             return n;
         }
@@ -65,11 +68,21 @@ namespace Parse
             };
         }
 
+        public static Node ArrayAssignmentStatement(dynamic[] p)
+        {
+            return new AssignmentNode
+            {
+                IndexExpression = p[0],
+                Expression = p[1]
+            };
+        }
+
         public static Node CallStatement(dynamic[] p)
         {
             return new CallNode
             {
-                Arguments = p[0]
+                Arguments = p[0] is List<Node> 
+                    ? p[0] : new List<Node>{ p[0] }
             };
         }
 
@@ -102,6 +115,19 @@ namespace Parse
             return nodeList;
         }
 
+        public static List<Node> Arguments(dynamic[] p)
+        {
+            var nodeList = new List<Node>();
+            nodeList.Add(p[0]);
+                
+            if (p.Length > 1 && p[1] is List<Node> ids)
+            {
+                ids.ForEach(id => nodeList.Add(id));
+            }
+
+            return nodeList;
+               
+        }
         public static Node SimpleType(dynamic[] p)
         {
             return new SimpleTypeNode
@@ -127,7 +153,7 @@ namespace Parse
 
         public static Node Expr(dynamic[] p)
         {
-            if (p.Length < 2) return p[0];
+            if (p.Length < 2 || p[1] == null) return p[0];
 
             return new BinaryOpNode
             {
@@ -152,7 +178,7 @@ namespace Parse
         {
             var term = p[0];
 
-            if (p.Length < 2)
+            if (p[1] == null)
             {
                 return term;
             }
@@ -201,8 +227,16 @@ namespace Parse
                 Token = p[0]
             };
         }
-        
-        
+
+        public static Node IfStatement(dynamic[] p)
+        {
+            return new IfNode
+            {
+                Expression = p[0],
+                TrueBranch = p[1],
+                FalseBranch = p.Length > 2 ? p[2] : NoOpStatement
+            };
+        }
         
         
     }

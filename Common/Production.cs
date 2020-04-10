@@ -9,11 +9,10 @@ namespace Common
         private Production(dynamic[] items)
         {
             Items = items;
-            
         }
 
         public static Production Of(params dynamic[] values) => new Production(values);
         public const char Epsilon =  'ε';
-        public static Production EpsilonProduction = Production.Of(Epsilon);
+        public static readonly Production EpsilonProduction = Of(Epsilon);
     }
 }

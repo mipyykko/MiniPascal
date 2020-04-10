@@ -70,13 +70,13 @@ if (1 < 2) then
    writeln(""noh"");
 end.";
   
-            Context.Source = Text.Of(program3);
+            Context.Source = Text.Of(program2);
 
             var s = new Scanner();
             var p = new Parser(s);
 
-            // var v = p.BuildTree();
-            // Console.WriteLine(v.AST());
+            var v = p.BuildTree();
+            Console.WriteLine(v.AST());
         }
     }
 }

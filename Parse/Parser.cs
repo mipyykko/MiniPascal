@@ -36,20 +36,35 @@ namespace Parse
             _scanner = scanner;
         }
 
+        private static StatementType[] operators =
+        {
+            StatementType.AddingOperator,
+            StatementType.MultiplyingOperator,
+            StatementType.RelationalOperator
+        };
+        
         public bool MatchStack(dynamic a, Token b)
         {
-            if (!(a.GetType() is Token) && !(a.GetType() is string)) return false;
-            if (a.GetType() is string)
+            if (!(a is Production.Epsilon) && a is string)
             {
                 return a.Equals(b.Content);
             }
-            if (a.GetType() is Token)
+            if (a is TokenType)
             {
-                if (a.Type != b.Type) return false;
-                if (a.Type == TokenType.Keyword && a.KeywordType != b.KeywordType) return false;
+                return a == b.Type;
             }
 
-            return true;
+            if (a is KeywordType)
+            {
+                return a == b.KeywordType;
+            }
+
+            if (a is StatementType && operators.Contains((StatementType) a) && b.Type == TokenType.Operator)
+            {
+                return true;
+            }
+
+            return false; 
         }
         
         public Node BuildTree()
@@ -82,7 +97,7 @@ namespace Parse
                 }
                 catch
                 {
-                    Console.WriteLine($"error: {Stack.Peek()} {_inputToken}");
+                    Console.WriteLine($"error: expected {Stack.Peek()}, got {_inputToken}");
                     break;
                 }
 
@@ -109,25 +124,35 @@ namespace Parse
 
         public Rule Predict()
         {
+            Console.WriteLine($"--- predict? {Stack.Peek()}, got {_inputToken}");
+            
             var top = Stack.Peek();
 
+            dynamic toMatch = _inputToken.Type == TokenType.Keyword
+                ? (dynamic) _inputToken.KeywordType
+                : (dynamic) _inputToken.Type == TokenType.Operator
+                    ? (dynamic) _inputToken.Content
+                    : _inputToken.Type;
+            
             if (!Predictions.ContainsKey(top))
             {
                 throw new Exception($"no prediction exists for {top}");
             }
 
-            if (!Predictions[top].ContainsKey(_inputToken)) 
+            if (!Predictions[top].ContainsKey(toMatch)) 
             {
                 if (!Predictions[top].ContainsKey(Production.Epsilon))
                 {
 
-                    throw new Exception($"no prediction for {_inputToken} in rule {top}");
+                    throw new Exception($"no prediction for {toMatch} in rule {top}");
                 }
 
+                Console.WriteLine($"--- ok, matching epsilon for {toMatch}");
                 return Predictions[top][Production.Epsilon];
             }
 
-            return Predictions[top][_inputToken];
+            Console.WriteLine($"--- ok, found rule for {toMatch}");
+            return Predictions[top][toMatch];
         }
         
         public void Gather(dynamic token)
@@ -137,11 +162,13 @@ namespace Parse
                 return;
             }
 
+            if (GathererStack.Peek() == null) return;
+
             GathererStack.Peek().Add(token);
 
             while (GathererStack.Peek().AllCollected)
             {
-                var result = GathererStack.Pop().Result();
+                var result = GathererStack.Pop().Result;
 
                 if (!GathererStack.Any())
                 {
