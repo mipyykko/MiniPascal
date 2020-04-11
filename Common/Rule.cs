@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Common;
+using static Common.Util;
 
 namespace Common
 {
@@ -22,7 +23,11 @@ namespace Common
             Name = name;
             Production = production;
             Collect = collect;
-            GathererFn = gathererFn == null ? (dynamic[] p) => null : gathererFn;
+            GathererFn = gathererFn ?? (p => null);
+            if (!(Production[0] is Production.Epsilon) && gathererFn == null)
+            {
+                throw new Exception($"no gatherer for non-epsilon rule {this}");
+            }
         }
 
 
@@ -73,7 +78,13 @@ namespace Common
             {
                 Console.WriteLine($"Result of {Rule}: {string.Join(", ", Collected.ToArray())}");
 
-                return Rule.GathererFn(Collected.Flatten().ToArray());;
+                var flat = Collected.Flatten().ToArray();
+
+                Console.WriteLine($"-- flattened {PrintList(flat)}");
+
+                var res = Rule.GathererFn(flat);
+                Console.WriteLine($"-- gathered? {res}");
+                return res;
             }
         }
 

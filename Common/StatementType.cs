@@ -103,6 +103,8 @@ namespace Common
         FunctionProcedureDeclaration,
         ProcedureDeclaration,
         FunctionDeclaration,
-        DeclarationBlockCont
+        DeclarationBlockCont,
+        Parameter,
+        ProgramCont
     }
 }

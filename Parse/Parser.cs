@@ -134,8 +134,6 @@ namespace Parse
 
         public Rule Predict()
         {
-            Console.WriteLine($"--- predict? {Stack.Peek()}, got {_inputToken}");
-            
             var top = Stack.Peek();
 
             dynamic toMatch = _inputToken.Type;
@@ -177,7 +175,7 @@ namespace Parse
                 return Predictions[top][Production.Epsilon];
             }
 
-            Console.WriteLine($"--- ok, found rule for {toMatch}");
+            Console.WriteLine($"--- ok, found rule {top} for {toMatch}");
             return Predictions[top][toMatch];
         }
         

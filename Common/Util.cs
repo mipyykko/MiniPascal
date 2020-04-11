@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using Microsoft.VisualBasic;
 
 namespace Common
@@ -127,6 +128,11 @@ namespace Common
                 else yield return item;
             }
         }
+
+        public static string PrintList(dynamic[] l)
+        {
+            return string.Join(", ", l.Select(ll => (ll is Array || ll is List<dynamic>) ? $"{{{PrintList(ll)}}}" : ll));
+        }
     }
     
     public class DefaultDictionary<TKey, TValue> : Dictionary<TKey, TValue> where TValue : new()
@@ -146,7 +152,6 @@ namespace Common
             set => base[key] = value;
         }
     }
-    
     
 }
 

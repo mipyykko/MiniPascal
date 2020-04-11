@@ -70,7 +70,7 @@ if (1 < 2) then
    writeln(""noh"");
 end.";
   
-            Context.Source = Text.Of(program2);
+            Context.Source = Text.Of(program);
 
             var s = new Scanner();
             var p = new Parser(s);

@@ -7,7 +7,7 @@ namespace Common
 
         private Collect(bool[] items) => Items = items;
         public static Collect Of(params bool[] values) => new Collect(values);
-        public static Collect NoCollect => Of(false);
+        public static Collect None => Of(false);
 
     }
 }

@@ -17,7 +17,7 @@ namespace AST
 
         public override string ToString()
         {
-            return $"{Type} {Value}";
+            return $"{Name}";
         }
 
         public abstract dynamic Accept(Visitor visitor);
@@ -41,17 +41,23 @@ namespace AST
         public override string Name => "Program";
 
         public Node Id;
-        public List<Node> DeclarationBlock;
+        public Node DeclarationBlock;
         public Node MainBlock;
         
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
+
+        public override string ToString()
+        {
+            return $"{Name} {Id} {string.Join(", ", DeclarationBlock)} {MainBlock}";
+        }
 
         public override string AST(int depth = 0)
         {
             // TODO: add declarationblock
             return $"{Spaces(depth)}[{Name}\n" +
                    $"{Id.AST(depth + 1)}" +
+                   $"{DeclarationBlock.AST(depth + 1)}" +
                    $"{MainBlock.AST(depth + 1)}{Spaces(depth)}]\n";
         }
     }
@@ -64,6 +70,33 @@ namespace AST
         
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
+
+        public override string ToString()
+        {
+            return $"{Name} {Left} {Right}";
+        }
+
+        public override string AST(int depth = 0)
+        {
+            return $"{Spaces(depth)}[{Name}\n" +
+                   $"{Left.AST(depth + 1)}{Right.AST(depth + 1)}{Spaces(depth)}]\n";
+        }
+    }
+
+    public class DeclarationListNode : Node
+    {
+        public override string Name => "DeclarationList";
+
+        public Node Left;
+        public Node Right;
+        
+        public override Token Token { get; set; }
+        public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
+
+        public override string ToString()
+        {
+            return $"{Name} {Left} {Right}";
+        }
 
         public override string AST(int depth = 0)
         {
@@ -81,11 +114,16 @@ namespace AST
     {
         public override string Name => "Assignment";
 
-        public Node IndexExpression;
+        public Node IndexExpression = new NoOpNode();
         public Node Expression;
         
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
+
+        public override string ToString()
+        {
+            return $"{Name} {Id}{(IndexExpression is NoOpNode ? "" : $"[{IndexExpression}]")} {Expression}";
+        }
 
         public override string AST(int depth = 0)
         {
@@ -103,6 +141,11 @@ namespace AST
         
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
+
+        public override string ToString()
+        {
+            return $"{Name} {Id}({string.Join(", ", Arguments)})";
+        }
 
         public override string AST(int depth = 0)
         {
@@ -129,6 +172,11 @@ namespace AST
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
+        public override string ToString()
+        {
+            return $"{Name} {Left}{Token.Content}{Right}";
+        }
+
         public override string AST(int depth = 0)
         {
             return $"{Spaces(depth)}[{Name}\n" +
@@ -146,6 +194,11 @@ namespace AST
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
+        public override string ToString()
+        {
+            return $"{Name} {Token.Content}{Expression}";
+        }
+
         public override string AST(int depth = 0)
         {
             return $"{Spaces(depth)}[{Name}\n" +
@@ -158,15 +211,20 @@ namespace AST
     {
         public override string Name => "Expression";
 
-        public char Sign = '+';
+        public char Sign = '\0';
         public Node Expression;
         
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
+        public override string ToString()
+        {
+            return $"{Name} {Sign}{Expression}";
+        }
+
         public override string AST(int depth = 0)
         {
-            return $"{(Sign != '+' ? "-" : "")}{Expression.AST(depth)}";
+            return $"{(Sign != '\0' ? $"{Spaces(depth)}[{Sign}]\n" : "")}{Expression.AST(depth)}";
         }
     }
 
@@ -178,6 +236,11 @@ namespace AST
         
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
+
+        public override string ToString()
+        {
+            return $"{Name} {Expression}";
+        }
 
         public override string AST(int depth = 0)
         {
@@ -194,6 +257,11 @@ namespace AST
         
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
+
+        public override string ToString()
+        {
+            return $"{Name} {Token.Content}{(IndexExpression is NoOpNode ? "" : $"[{IndexExpression}]")}";
+        }
 
         public override string AST(int depth = 0)
         {
@@ -214,7 +282,7 @@ namespace AST
 
         public override string ToString()
         {
-            return Token.Content;
+            return $"{Name} {Token.Content}";
         }
 
         public override string AST(int depth = 0)
@@ -237,6 +305,11 @@ namespace AST
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
+        public override string ToString()
+        {
+            return $"{Name} {Expression} {TrueBranch} {FalseBranch}";
+        }
+
         public override string AST(int depth = 0)
         {
             return $"{Spaces(depth)}[{Name}\n" +
@@ -257,6 +330,12 @@ namespace AST
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
+
+        public override string ToString()
+        {
+            return $"{Name} {Expression} {Statement}";
+        }
+
         public override string AST(int depth = 0)
         {
             return $"{Spaces(depth)}[{Name}\n" +
@@ -270,10 +349,15 @@ namespace AST
     {
         public override string Name => "VarDeclaration";
 
-        public List<IdentifierNode> Ids;
+        public List<Node> Ids; // IdentifierNode
         
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
+
+        public override string ToString()
+        {
+            return $"{Name} {string.Join(", ", Ids)}";
+        }
 
         public override string AST(int depth = 0)
         {
@@ -296,11 +380,16 @@ namespace AST
         public override string Name => "ProcedureDeclaration";
 
         public Node Id;
-        public List<ParameterNode> Parameters;
+        public List<Node> Parameters; // ParameterNode
         public Node Statement;
         
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
+
+        public override string ToString()
+        {
+            return $"{Name} {Id}({string.Join(", ", Parameters)}) {Statement}";
+        }
 
         public override string AST(int depth = 0)
         {
@@ -323,11 +412,16 @@ namespace AST
         public override string Name => "FunctionDeclaration";
 
         public Node Id;
-        public List<ParameterNode> Parameters;
+        public List<Node> Parameters; // ParameterNode
         public Node Statement;
         
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
+
+        public override string ToString()
+        {
+            return $"{Name} {Id}({string.Join(", ", Parameters)}): {Type} {Statement}";
+        }
 
         public override string AST(int depth = 0)
         {
@@ -356,6 +450,11 @@ namespace AST
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
+        public override string ToString()
+        {
+            return $"{Name} {(Reference ? "var " : "")}{Id} {Type}";
+        }
+
         public override string AST(int depth = 0)
         {
             return $"{Spaces(depth)}[{Name} {(Reference ? "Ref" : "")}\n" +
@@ -375,7 +474,7 @@ namespace AST
 
         public override string ToString()
         {
-            return Token?.Content ?? "";
+            return $"{Name} {(Token?.Content ?? "")}";
         }
 
         public override string AST(int depth = 0)
@@ -390,6 +489,11 @@ namespace AST
 
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
+
+        public override string ToString()
+        {
+            return $"{Name} {(Token?.Content ?? "")}";
+        }
 
         public override string AST(int depth = 0)
         {
@@ -406,6 +510,10 @@ namespace AST
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
+        public override string ToString()
+        {
+            return $"{Name} {(Token?.Content ?? "")}[{Size}]";
+        }
         public override string AST(int depth = 0)
         {
             return $"{Spaces(depth)}[{Name}\n{Spaces(depth+1)}[{PrimitiveType}]\n" +

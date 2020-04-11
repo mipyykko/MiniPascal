@@ -4,6 +4,7 @@ using System.Linq;
 using AST;
 using Common;
 using Scan;
+using static Common.Util;
 
 namespace Parse
 {
@@ -11,12 +12,16 @@ namespace Parse
     {
         public static dynamic Program(dynamic[] p)
         {
+            var id = p[0];
+            var declaration = p[1] is DeclarationListNode ? p[1] : NoOpStatement;
+            var main = declaration is NoOpNode ? p[1] : p[2];
+            
             return new ProgramNode
             {
                 //Token = p[0],
-                Id = p[0],
-                DeclarationBlock = p[1],
-                MainBlock = p[2]
+                Id = id,
+                DeclarationBlock = declaration,
+                MainBlock = main
             };
         }
 
@@ -34,13 +39,22 @@ namespace Parse
                 Token = p[0]
             };
         }
+
+        public static Node DeclarationBlockStatement(dynamic[] p)
+        {
+            return new DeclarationListNode
+            {
+                Left = p.Length > 0 ? p[0] : NoOpStatement,
+                Right = p.Length > 1 && p[1] != null ? p[1] : NoOpStatement
+            };
+        }
         
         public static Node BlockStatement(dynamic[] p)
         {
             return new StatementListNode
             {
-                Left = p[0],
-                Right = p.Length > 1 ? p[1] : NoOpStatement
+                Left = p[0] != null ? p[0] : NoOpStatement,
+                Right = p.Length > 1 && p[1] != null ? p[1] : NoOpStatement
             };
         }
 
@@ -59,13 +73,31 @@ namespace Parse
 
         public static Node CallOrVariable(dynamic[] p)
         {
-            Node id = p[0];
-            var n = p[1];
+            var id = (IdentifierNode) p[0];
+            var n = p[1] is TreeNode ? UnwrapTreeNode(p[1]) : p[1];
 
-            if (n is IdNode)
-                n.Id = id;
+            if (n != null)
+            {
+                if (n is List<Node>)
+                {
+                    return new CallNode
+                    {
+                        Id = id,
+                        Arguments = n
+                    };
+                }
+                // TODO: what's this?
+                /*if (n is IdNode)
+                {
+                    n.Id = id;
+                    return n;
+                }*/
 
-            return n;
+                id.IndexExpression = n;
+                return id;
+            }
+
+            return n != null ? n : id;
         }
         
         public static Node AssignmentStatement(dynamic[] p)
@@ -87,23 +119,26 @@ namespace Parse
 
         public static Node CallStatement(dynamic[] p)
         {
+            var arguments = UnwrapTreeNode(p[0]);//new List<Node>();
+            /*var idx = 0;
+            while (idx < p.Length && p[idx] is Node) arguments.Add(p[idx++]);*/
+
             return new CallNode
             {
-                Arguments = p[0] is List<Node> 
-                    ? p[0] : new List<Node>{ p[0] }
+                Arguments = arguments
             };
         }
 
         public static Node VarDeclaration(dynamic[] p)
         {
-            var ids = new List<IdentifierNode>();
+            var ids = UnwrapTreeNode(p[0]);// new List<IdentifierNode>();
             
-            while (p.Length > 1)
+            /*while (p.Length > 1)
             {
                 ids.Add(p[0]);
                 p = p.Skip(1).ToArray();
-            }
-            var type = p[0];
+            }*/
+            var type = p[1];
             
             foreach (var id in ids)
             {
@@ -119,7 +154,12 @@ namespace Parse
         public static Node FunctionDeclaration(dynamic[] p)
         {
             var id = p[0];
-            var parameters = p[1];
+            var parameters = UnwrapTreeNode(p[1]); //new List<ParameterNode>());
+            /*var idx = 1;
+            
+            while (p[idx] is ParameterNode) parameters.Add(p[idx++]);
+
+            p = p.Skip(idx).ToArray();*/
             var type = p[2];
             var block = p[3];
 
@@ -135,7 +175,12 @@ namespace Parse
         public static Node ProcedureDeclaration(dynamic[] p)
         {
             var id = p[0];
-            var parameters = p[1];
+            var parameters = UnwrapTreeNode(p[1]);
+            /*var idx = 1;
+            
+            while (p[idx] is ParameterNode) parameters.Add(p[idx++]);
+
+            p = p.Skip(idx).ToArray();*/
             var block = p[2];
 
             return new ProcedureDeclarationNode
@@ -146,11 +191,9 @@ namespace Parse
             };
         }
 
-        public static List<ParameterNode> Parameters(dynamic[] p)
+        public static Node Parameter(dynamic[] p)
         {
-            var ids = new List<ParameterNode>();
-
-            var reference = p[0] is KeywordType && p[0] == KeywordType.Var;
+            var reference = p[0] is Token t && t.KeywordType == KeywordType.Var;
 
             if (reference)
             {
@@ -161,25 +204,49 @@ namespace Parse
             var type = p[1];
 
             id.Type = type;
-            
-            var node = new ParameterNode
+
+            return new ParameterNode
             {
+                Type = type,
                 Id = id,
                 Reference = reference
             };
+        }
 
-            ids.Add(node);
-            
-            if (p.Length > 2 && p[2] is List<ParameterNode> optParameters)
+        public static TreeNode/*List<ParameterNode>*/ Parameters(dynamic[] p)
+        {
+            return new TreeNode
             {
-                ids.AddRange(optParameters.Where(p => p != null));
+                Left = p.Length > 0 ? p[0] : null,
+                Right = p.Length > 1 ? p[1] : null
+            };
+            /*var ids = new List<ParameterNode>();
+
+            while (p.Length > 0)
+            {
+                if (p[0] is List<ParameterNode> optParameters)
+                {
+                    ids.AddRange(optParameters.Where(p => p != null));
+                }
+                else if (p[0] != null)
+                {
+                    ids.Add(p[0]);
+                }
+
+                p = p.Skip(1).ToArray();
             }
 
-            return ids;
+            return ids;*/
         }
         
-        public static List<IdentifierNode> Ids(dynamic[] p)
+        public static TreeNode Ids(dynamic[] p)
         {
+            return new TreeNode
+            {
+                Left = p.Length > 0 ? p[0] : null,
+                Right = p.Length > 1 ? p[1] : null
+            };
+            /*
             var nodeList = new List<IdentifierNode>();
 
             foreach (var n in p.Where(node => node != null))
@@ -187,20 +254,56 @@ namespace Parse
                 nodeList.Add(n);
             }
 
-            return nodeList;
+            return nodeList;*/
         }
 
-        public static List<Node> Arguments(dynamic[] p)
+        public class TreeNode
         {
-            var nodeList = new List<Node>();
-            nodeList.Add(p[0]);
-                
-            if (p.Length > 1 && p[1] is List<Node> ids)
+            public Node Left;
+            public TreeNode Right;
+        }
+
+        private static List<Node> UnwrapTreeNode(TreeNode t)
+        {
+            var ret = new List<Node>();
+
+            while (true)
             {
-                ids.ForEach(id => nodeList.Add(id));
+                if (t.Left == null || t.Left is NoOpNode) return ret;
+                ret.Add(t.Left);
+                if (t.Right == null) return ret;
+                
+                t = t.Right;
+            }
+        }
+
+        public static TreeNode /*List<Node>*/ Arguments(dynamic[] p)
+        {
+            return new TreeNode
+            {
+                Left = p.Length > 0 ? p[0] : null,
+                Right = p.Length > 1 ? p[1] : null
+            };
+
+            /*
+            var nodeList = new List<Node>();
+
+            while (p.Length > 0)
+            {
+                if (p[0] is List<Node> exprs)
+                {
+                    nodeList.AddRange(exprs.Where(p => p != null));
+                }
+                else if (p[0] != null)
+                {
+                    nodeList.Add(p[0]);
+                }
+
+                p = p.Skip(1).ToArray();
             }
 
             return nodeList;
+            */
                
         }
         public static Node SimpleType(dynamic[] p)
@@ -267,7 +370,7 @@ namespace Parse
 
         public static Node FactorOptSize(dynamic[] p)
         {
-            if (p.Length < 2) return p[0];
+            if (p.Length < 2 || p[1] == null) return p[0];
 
             return new SizeNode
             {
@@ -311,7 +414,22 @@ namespace Parse
                 FalseBranch = p.Length > 2 ? p[2] : NoOpStatement
             };
         }
-        
-        
+
+        public static Node WhileStatement(dynamic[] p)
+        {
+            return new WhileNode
+            {
+                Expression = p[0],
+                Statement = p[1]
+            };
+        }
+
+        public static Node ReturnStatement(dynamic[] p)
+        {
+            return new ReturnStatementNode
+            {
+                Expression = p[0] ?? NoOpStatement
+            };
+        }
     }
 }

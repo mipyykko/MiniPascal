@@ -26,5 +26,6 @@ namespace AST
         public abstract dynamic Visit(AssertStatementNode node);
         public abstract dynamic Visit(ReadStatementNode node);
         public abstract dynamic Visit(WriteStatementNode node);
+        public abstract dynamic Visit(DeclarationListNode node);
     }
 }
