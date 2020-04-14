@@ -2,6 +2,7 @@
 using Scan;
 using Common;
 using Parse;
+using ScopeAnalyze;
 
 namespace MiniPascal
 {
@@ -34,7 +35,7 @@ while i <= 19 do writeln (F (i));
 while i <= 19 do writeln (M (i));
 end. ";
             var program2 = @"program SwapAndSumThem;
-function Sum (data : array [] of integer, kissa : integer, koira: string) : integer;
+function Sum (data : array [] of integer) : integer;
 begin
 var i, sum : integer;
  i := 0; sum := 0;
@@ -70,12 +71,17 @@ if (1 < 2) then
    writeln(""noh"");
 end.";
   
-            Context.Source = Text.Of(program);
+            Context.Source = Text.Of(program2);
 
             var s = new Scanner();
             var p = new Parser(s);
 
             var v = p.BuildTree();
+            // TODO: add first pass scope visitor to gather functions/procedures
+            var analyzer = new ScopeAnalyzer();
+
+            analyzer.Analyze(v);
+            
             Console.WriteLine(v.AST());
         }
     }

@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using AST;
 using Common;
+using Common.AST;
 using Scan;
 using Rule = Common.Rule;
 using StatementType = Common.StatementType;

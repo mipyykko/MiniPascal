@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using AST;
 using Common;
 using Scan;
 using StatementType = Common.StatementType;
@@ -70,12 +69,12 @@ namespace Parse
             Rule.Of(StatementType.VariableIds, 
                 Production.Of(StatementType.Identifier, StatementType.Ids), 
                 Collect.Of(true, true), 
-                Ids),
+                ListBuilder),
             Rule.Of(StatementType.Ids, Production.EpsilonProduction, Collect.None, null),
             Rule.Of(StatementType.Ids, 
                 Production.Of(TokenType.Comma, StatementType.Identifier, StatementType.Ids), 
                 Collect.Of(false, true, true), 
-                Ids), // Flatten
+                ListBuilder), 
             Rule.Of(StatementType.Parameter,
                 Production.Of(KeywordType.Var, StatementType.Identifier, TokenType.Colon, StatementType.Type),
                 Collect.Of(true, true, false, true),
@@ -88,7 +87,7 @@ namespace Parse
             Rule.Of(StatementType.Parameters, 
                 Production.Of(StatementType.Parameter, StatementType.OptParameters), 
                 Collect.Of(true, true), 
-                Parameters),
+                ListBuilder),
             Rule.Of(StatementType.OptParameters, Production.EpsilonProduction, Collect.None, null),
             Rule.Of(StatementType.OptParameters, 
                 Production.Of(TokenType.Comma, StatementType.Parameters), 
@@ -177,7 +176,7 @@ namespace Parse
             Rule.Of(StatementType.AssignmentStatementOrCall,
                 Production.Of(TokenType.OpenBlock, StatementType.IntegerExpr, TokenType.CloseBlock, TokenType.Assignment, StatementType.Expr),
                 Collect.Of(false, true, false, false, true),
-                ArrayAssignmentStatement),
+                AssignmentStatement),
             Rule.Of(StatementType.AssignmentStatementOrCall,
                 Production.Of(TokenType.Assignment, StatementType.Expr),
                 Collect.Of(false, true),
@@ -190,12 +189,12 @@ namespace Parse
             Rule.Of(StatementType.Arguments, 
                 Production.Of(StatementType.Expr, StatementType.Exprs), 
                 Collect.Of(true, true), 
-                Arguments),
+                ListBuilder),
             Rule.Of(StatementType.Exprs, Production.EpsilonProduction, Collect.None, null),
             Rule.Of(StatementType.Exprs, 
                 Production.Of(TokenType.Comma, StatementType.Expr, StatementType.Exprs), 
                 Collect.Of(false, true, true), 
-                Arguments), // Flatten
+                ListBuilder),
             Rule.Of(StatementType.ReturnStatement, 
                 Production.Of(KeywordType.Return, StatementType.OptReturnExpr), 
                 Collect.Of(false, true), 
@@ -438,26 +437,31 @@ namespace Parse
                 Pass)
         };
 
-        static HashSet<dynamic> Terminals = new HashSet<dynamic>();
-        static HashSet<dynamic> NonTerminals = new HashSet<dynamic>();
-        static DefaultDictionary<dynamic, bool> Epsilons = new DefaultDictionary<dynamic, bool>();
-        static DefaultDictionary<dynamic, HashSet<dynamic>> First = new DefaultDictionary<dynamic, HashSet<dynamic>>();
-        static DefaultDictionary<dynamic, HashSet<dynamic>> Follow = new DefaultDictionary<dynamic, HashSet<dynamic>>();
+        private static readonly HashSet<dynamic> Terminals = new HashSet<dynamic>();
+        private static readonly HashSet<dynamic> NonTerminals = new HashSet<dynamic>();
+        private static readonly DefaultDictionary<dynamic, bool> Epsilons = new DefaultDictionary<dynamic, bool>();
+        private static readonly DefaultDictionary<dynamic, HashSet<dynamic>> First = new DefaultDictionary<dynamic, HashSet<dynamic>>();
+        private static readonly DefaultDictionary<dynamic, HashSet<dynamic>> Follow = new DefaultDictionary<dynamic, HashSet<dynamic>>();
 
-        public static DefaultDictionary<dynamic, DefaultDictionary<dynamic, Rule>> Predictions =
+        public static readonly DefaultDictionary<dynamic, DefaultDictionary<dynamic, Rule>> Predictions =
             new DefaultDictionary<dynamic, DefaultDictionary<dynamic, Rule>>();
 
-        static bool IsTerminal(dynamic i) => !(i is Production.Epsilon) && !IsNonTerminal(i);
-        static bool IsNonTerminal(dynamic i) => !(i is Production.Epsilon) && NonTerminals.Contains(i);
+        private static bool IsTerminal(dynamic i) => !(i is Production.Epsilon) && !IsNonTerminal(i);
+        private static bool IsNonTerminal(dynamic i) => !(i is Production.Epsilon) && NonTerminals.Contains(i);
 
-        static IEnumerable<dynamic> FilterEpsilon(IEnumerable<dynamic> s)
+        private static IEnumerable<dynamic> FilterEpsilon(IEnumerable<dynamic> s)
         {
             return new HashSet<dynamic>(s.Where(i => !(i is Production.Epsilon)));
         }
 
         public static void CreateGrammar()
         {
-            
+
+            foreach (var rule in Rules)
+            {
+                Console.WriteLine($"{rule.Name} -> {string.Join(" ", rule.Production.Items.Select(i => i is Production.Epsilon ? "" : i is StatementType ? i : i.ToString().ToLower()).ToArray())}.");
+            }
+
             foreach (var rule in Rules)
             {
                 NonTerminals.Add(rule.Name);
@@ -610,7 +614,6 @@ namespace Parse
             foreach (var rule in Rules)
             {
                 var set = new HashSet<dynamic>();
-                var firstItem = rule.Production[0];
                 var nonTerminal = rule.Name;
                 
                 rule.Production.Items.Select((i, idx) => (i, idx)).All(tuple =>

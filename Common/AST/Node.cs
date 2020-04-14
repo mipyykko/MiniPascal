@@ -2,10 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Common;
 using static Common.Util;
 
-namespace AST
+namespace Common.AST
 {
     public abstract class Node
     {
@@ -14,6 +13,7 @@ namespace AST
         public dynamic Value { get; set; }
         public abstract Token Token { get; set; }
         public Node Type { get; set; }
+        public Scope Scope { get; set; }
 
         public override string ToString()
         {
@@ -83,6 +83,12 @@ namespace AST
         }
     }
 
+    public class ScopeStatementListNode : StatementListNode
+    {
+        public override string Name => "ScopeStatementListNode";
+        public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
+    }
+
     public class DeclarationListNode : Node
     {
         public override string Name => "DeclarationList";
@@ -138,6 +144,7 @@ namespace AST
         public override string Name => "Call";
 
         public List<Node> Arguments; // ExpressionNode
+        public FunctionOrProcedureDeclarationNode Function;
         
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
@@ -254,6 +261,7 @@ namespace AST
         public override string Name => "Identifier";
 
         public Node IndexExpression = new NoOpNode();
+        public IdentifierNode ReferenceNode;
         
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
@@ -375,13 +383,16 @@ namespace AST
         }
     }
 
-    public class ProcedureDeclarationNode : Node
+    public abstract class FunctionOrProcedureDeclarationNode : Node
+    {
+        public Node Id;
+        public Node Statement;
+        public List<Node> Parameters; // ParameterNode
+    }
+
+    public class ProcedureDeclarationNode : FunctionOrProcedureDeclarationNode
     {
         public override string Name => "ProcedureDeclaration";
-
-        public Node Id;
-        public List<Node> Parameters; // ParameterNode
-        public Node Statement;
         
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
@@ -407,14 +418,10 @@ namespace AST
         }
     }
 
-    public class FunctionDeclarationNode : Node
+    public class FunctionDeclarationNode : FunctionOrProcedureDeclarationNode
     {
         public override string Name => "FunctionDeclaration";
 
-        public Node Id;
-        public List<Node> Parameters; // ParameterNode
-        public Node Statement;
-        
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 

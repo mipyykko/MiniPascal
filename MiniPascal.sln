@@ -6,7 +6,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Scan", "Scan\Scan.csproj", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Parse", "Parse\Parse.csproj", "{8CE88382-619C-4E24-81E4-A8FAFF1B296A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Scope", "Scope\Scope.csproj", "{C826305E-A9CF-46A8-A987-8CB3A95A22F9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScopeAnalyze", "ScopeAnalyze\ScopeAnalyze.csproj", "{C826305E-A9CF-46A8-A987-8CB3A95A22F9}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Common", "Common\Common.csproj", "{98590226-0EFD-48D2-9922-E7ECB7666C02}"
 EndProject

@@ -1,4 +1,4 @@
-namespace AST
+namespace Common.AST
 {
     public abstract class Visitor
     {
@@ -27,5 +27,6 @@ namespace AST
         public abstract dynamic Visit(ReadStatementNode node);
         public abstract dynamic Visit(WriteStatementNode node);
         public abstract dynamic Visit(DeclarationListNode node);
+        public abstract dynamic Visit(ScopeStatementListNode node);
     }
 }
