@@ -63,7 +63,11 @@ namespace Parse
         {
             return new IdentifierNode
             {
-                Token = p[0]
+                Token = p[0],
+                Type = new SimpleTypeNode
+                {
+                    PrimitiveType = PrimitiveType.Void
+                } // TODO
             };
         }
 
@@ -210,9 +214,20 @@ namespace Parse
 
         public static Node SimpleType(dynamic[] p)
         {
+            var token = (Token) p[0];
+            var type = token.Content switch
+            {
+                "integer" => PrimitiveType.Integer,
+                "real" => PrimitiveType.Real,
+                "boolean" => PrimitiveType.Boolean,
+                "string" => PrimitiveType.String,
+                _ => PrimitiveType.Void
+            };
+                
             return new SimpleTypeNode
             {
-                Token = p[0]
+                Token = p[0],
+                PrimitiveType = type
             };
         }
 
@@ -224,7 +239,9 @@ namespace Parse
             return new ArrayTypeNode
             {
                 Type = type,
-                Size = size
+                Size = size,
+                PrimitiveType = PrimitiveType.Array,
+                SubType = type.PrimitiveType
             };
         }
 
@@ -236,7 +253,8 @@ namespace Parse
             {
                 Left = p[0],
                 Token = p[1], // TODO: op?
-                Right = p[2]
+                Right = p[2],
+                Type = new SimpleTypeNode() // TODO (?)
             };
         }
 
@@ -247,7 +265,8 @@ namespace Parse
             return new UnaryOpNode
             {
                 Token = p[0],
-                Expression = p[1]
+                Expression = p[1],
+                Type = new SimpleTypeNode() // TODO ?
             };
             /*return new ExpressionNode
             {
@@ -304,9 +323,22 @@ namespace Parse
 
         public static Node Literal(dynamic[] p)
         {
+            var token = (Token) p[0];
+            
             return new LiteralNode
             {
-                Token = p[0]
+                Token = token,
+                Type = new SimpleTypeNode
+                {
+                    PrimitiveType = token.Type switch
+                    {
+                        TokenType.IntegerValue => PrimitiveType.Integer,
+                        TokenType.RealValue => PrimitiveType.Real,
+                        TokenType.StringValue => PrimitiveType.String,
+                        TokenType.BooleanValue => PrimitiveType.Boolean,
+                        _ => PrimitiveType.Void
+                    }
+                }
             };
         }
 

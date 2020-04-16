@@ -6,6 +6,7 @@ namespace Common
         Integer,
         Real,
         String,
-        Boolean
+        Boolean,
+        Array
     }
 }

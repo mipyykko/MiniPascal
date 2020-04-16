@@ -10,7 +10,7 @@
       <ProjectReference Include="..\Common\Common.csproj" />
       <ProjectReference Include="..\Parse\Parse.csproj" />
       <ProjectReference Include="..\Scan\Scan.csproj" />
-      <ProjectReference Include="..\ScopeAnalyze\ScopeAnalyze.csproj" />
+      <ProjectReference Include="..\SemanticAnalysis\SemanticAnalysis.csproj" />
     </ItemGroup>
 
 </Project>

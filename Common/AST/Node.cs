@@ -12,7 +12,7 @@ namespace Common.AST
         
         public dynamic Value { get; set; }
         public abstract Token Token { get; set; }
-        public Node Type { get; set; }
+        public TypeNode Type { get; set; }
         public Scope Scope { get; set; }
 
         public override string ToString()
@@ -186,7 +186,7 @@ namespace Common.AST
 
         public override string AST(int depth = 0)
         {
-            return $"{Spaces(depth)}[{Name}\n" +
+            return $"{Spaces(depth)}[{Name} {Type}\n" +
                    $"{Spaces(depth+1)}[{Token.Content}]\n" +
                    $"{Left.AST(depth + 1)}{Right.AST(depth + 1)}{Spaces(depth)}]\n";
         }
@@ -383,9 +383,8 @@ namespace Common.AST
         }
     }
 
-    public abstract class FunctionOrProcedureDeclarationNode : Node
+    public abstract class FunctionOrProcedureDeclarationNode : IdNode
     {
-        public Node Id;
         public Node Statement;
         public List<Node> Parameters; // ParameterNode
     }
@@ -499,7 +498,7 @@ namespace Common.AST
 
         public override string ToString()
         {
-            return $"{Name} {(Token?.Content ?? "")}";
+            return $"{Name} {(Token?.Content ?? "")} {PrimitiveType}";
         }
 
         public override string AST(int depth = 0)
@@ -512,6 +511,7 @@ namespace Common.AST
     {
         public override string Name => "ArrayType";
 
+        public PrimitiveType SubType;
         public Node Size;
         
         public override Token Token { get; set; }
@@ -519,7 +519,7 @@ namespace Common.AST
 
         public override string ToString()
         {
-            return $"{Name} {(Token?.Content ?? "")}[{Size}]";
+            return $"{Name} {(Token?.Content ?? "")}[{(Size is NoOpNode ? "" : Size.ToString())}]";
         }
         public override string AST(int depth = 0)
         {

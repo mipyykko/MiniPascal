@@ -9,7 +9,8 @@ namespace Common.Symbols
     public abstract class IVariable
     {
         public string Name;
-        public string Type;
+        public PrimitiveType PrimitiveType;
+        public PrimitiveType SubType;
         public Node Node;
     }
 
@@ -42,28 +43,28 @@ namespace Common.Symbols
     {
         public string Name;
         public SymbolType SymbolType;
-        public string Type;
+        public PrimitiveType PrimitiveType;
         public int Size;
         public (Scope, string) Reference;
 
-        public static Symbol Of(string name, SymbolType symbolType, string type, int size, (Scope, string) reference) =>
+        public static Symbol Of(string name, SymbolType symbolType, PrimitiveType primitiveType, int size, (Scope, string) reference) =>
             new Symbol
             {
                 Name = name,
                 SymbolType = symbolType,
-                Type = type,
+                PrimitiveType = primitiveType,
                 Size = size,
                 Reference = reference
             };
 
-        public static Symbol Of(string name, SymbolType symbolType, string type) =>
-            Symbol.Of(name, symbolType, type, -1, (null, ""));
+        public static Symbol Of(string name, SymbolType symbolType, PrimitiveType primitiveType) =>
+            Symbol.Of(name, symbolType, primitiveType, -1, (null, ""));
         
-        public static Symbol Of(string name, SymbolType symbolType, string type, int size) => 
-            Symbol.Of(name, symbolType, type, size, (null, ""));
+        public static Symbol Of(string name, SymbolType symbolType, PrimitiveType primitiveType, int size) => 
+            Symbol.Of(name, symbolType, primitiveType, size, (null, ""));
         
-        public static Symbol Of(string name, SymbolType symbolType, string type, (Scope, string) reference) => 
-            Symbol.Of(name, symbolType, type, -1, reference);
+        public static Symbol Of(string name, SymbolType symbolType, PrimitiveType primitiveType, (Scope, string) reference) => 
+            Symbol.Of(name, symbolType, primitiveType, -1, reference);
 
         public override string ToString()
         {
@@ -89,6 +90,12 @@ namespace Common.Symbols
         public IVariable GetSymbol(string id)
         {
             var _id = id.ToLower();
+
+            if (!_symbols.ContainsKey(_id))
+            {
+                return null;
+            }
+            
             var variable = _symbols[_id];
 
             if (variable is Variable v && v.ReferenceNode != null)
