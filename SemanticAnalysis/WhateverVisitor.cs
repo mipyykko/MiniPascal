@@ -168,10 +168,10 @@ namespace ScopeAnalyze
                         $"wrong parameter type for {id} - {pId}: expected a variable as a parameter, got {arg}");
                 }
 
-                if (arg is IdentifierNode)
+                if (arg is VariableNode v)
                 {
-                    var c = (Variable) GetVariable(arg.Accept(this));
-                    argIndexType = ((IdentifierNode) arg).IndexExpression.Accept(this);
+                    var c = (Variable) GetVariable(v.Id.Accept(this));
+                    argIndexType = v.IndexExpression.Accept(this);
                     if (argIndexType != null && argIndexType != PrimitiveType.Void)
                     {
                         argType = c.SubType;
@@ -453,6 +453,11 @@ namespace ScopeAnalyze
         public override dynamic Visit(ScopeStatementListNode node)
         {
             throw new System.NotImplementedException();
+        }
+
+        public override dynamic Visit(VariableNode node)
+        {
+            throw new NotImplementedException();
         }
     }
 }

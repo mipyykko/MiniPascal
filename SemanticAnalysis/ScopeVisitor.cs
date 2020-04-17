@@ -7,45 +7,19 @@ using Common.Symbols;
 
 namespace ScopeAnalyze
 {
-    public class ScopeVisitor : Visitor
+    public class ScopeVisitor : AnalyzeVisitor
     {
-        private readonly Stack<Scope> _scopes = new Stack<Scope>();
 
-        public ScopeVisitor(Scope s)
+        public ScopeVisitor(Scope scope)
         {
-            _scopes.Push(s);
+            Scopes.Push(scope);
         }
-        
-        private void EnterScope(ScopeType type)
-        {
-            var parent = _scopes.Any() ? CurrentScope : null;
-            var scope = new Scope
-            {
-                Parent = parent,
-                ScopeType = type,
-                SymbolTable = new SymbolTable()
-            };
-            
-            Console.WriteLine($"Entering {scope}");
-            
-            _scopes.Push(scope);
-        }
-
-        private void ExitScope()
-        {
-            if (_scopes.Any())
-            {
-                Console.WriteLine($"Exiting {CurrentScope}");
-                _scopes.Pop();
-            }
-        }
-
-        private Scope CurrentScope => _scopes.Peek();
         
         public override dynamic Visit(ProgramNode node)
         {
             // already in main scope
             CurrentScope.Node = node;
+            node.Scope = CurrentScope;
             
             node.DeclarationBlock.Scope = CurrentScope;
             node.DeclarationBlock.Accept(this);
@@ -129,26 +103,15 @@ namespace ScopeAnalyze
         public override dynamic Visit(LiteralNode node)
         {
             return null;
-            /*
-            var type = node.Token.Type;
-            var content = node.Token.Content;
-
-            return type switch
-            {
-                TokenType.IntegerValue => int.Parse(content),
-                TokenType.RealValue => float.Parse(content),
-                TokenType.BooleanValue => bool.Parse(content),
-                _ => content
-            };*/
         }
 
         public override dynamic Visit(IfNode node)
         {
-            EnterScope(ScopeType.IfThen);
+            CreateScope(ScopeType.IfThen);
             node.TrueBranch.Scope = CurrentScope;
             node.TrueBranch.Accept(this);
             ExitScope();
-            EnterScope(ScopeType.IfElse);
+            CreateScope(ScopeType.IfElse);
             node.FalseBranch.Scope = CurrentScope;
             node.FalseBranch.Accept(this);
             ExitScope();
@@ -158,7 +121,7 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(WhileNode node)
         {
-            EnterScope(ScopeType.While);
+            CreateScope(ScopeType.While);
             node.Statement.Scope = CurrentScope;
             node.Statement.Accept(this);
             ExitScope();
@@ -168,18 +131,24 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(VarDeclarationNode node)
         {
-            Console.WriteLine(string.Join(", ", node.Ids));
-            
             foreach (var idNode in node.Ids)
             {
                 var id = idNode.Accept(this);
                 var type = idNode.Type.Accept(this);
-                var size = idNode.Type is ArrayTypeNode at ? int.Parse(at.Size.Token.Content) : -1;
+                var size = -1; // simple type
                 // was: at.Size.Accept(this)
                 var subType = PrimitiveType.Void;
 
-                if (idNode.Type is ArrayTypeNode)
+                if (idNode.Type is ArrayTypeNode at)
                 {
+                    if (at.Size is NoOpNode)
+                    {
+                        size = 0; // array[]
+                    }
+                    else
+                    {
+                        size = -1; // array[expression]
+                    }
                     subType = type;
                     type = PrimitiveType.Array;
                 }
@@ -199,21 +168,38 @@ namespace ScopeAnalyze
             return null;
         }
 
-        public override dynamic Visit(ProcedureDeclarationNode node)
+        public dynamic VisitFunctionOrProcedureDeclarationNode(FunctionOrProcedureDeclarationNode node)
         {
             var id = node.Id.Accept(this);
             
-            if (!CurrentScope.SymbolTable.AddSymbol(new UserFunction
+            if (node is ProcedureDeclarationNode)
             {
-                Name = id,
-                Node = node
-            }))
+                if (!CurrentScope.SymbolTable.AddSymbol(new UserFunction
+                {
+                    Name = id,
+                    Node = node
+                }))
+                {
+                    throw new Exception($"procedure {id} already declared");
+                };
+                CreateScope(ScopeType.Procedure);
+            }
+            else
             {
-                throw new Exception($"procedure {id} already declared");
-            };
+                var type = node.Type.Accept(this);
 
-            EnterScope(ScopeType.Procedure);
-
+                if (!CurrentScope.SymbolTable.AddSymbol(new UserFunction
+                {
+                    Name = id,
+                    Node = node,
+                    PrimitiveType = type
+                }))
+                {
+                    throw new Exception($"function {id} already declared");
+                }
+                CreateScope(ScopeType.Function);
+            }
+            
             foreach (ParameterNode par in node.Parameters)
             {
                 var parId = par.Id.Accept(this);
@@ -225,7 +211,7 @@ namespace ScopeAnalyze
                 {
                     parType = PrimitiveType.Array;
                     subType = atn.SubType;
-                    size = atn.Size.Accept(this) ?? -1;
+                    size = atn.Size is NoOpNode ? 0 : 1;
                 }
                 
                 if (!CurrentScope.SymbolTable.AddSymbol(new Variable
@@ -237,7 +223,7 @@ namespace ScopeAnalyze
                     Size = size
                 }))
                 {
-                    throw new Exception($"procedure parameter {parId} already declared");
+                    throw new Exception($"{(node is FunctionDeclarationNode ? "function" : "procedure")} {id} parameter {parId} already declared");
                 }
             }
 
@@ -246,60 +232,18 @@ namespace ScopeAnalyze
             CurrentScope.Node = node;
             node.Statement.Accept(this);
             ExitScope();
-            return node;
+
+            return null;
+        }
+        
+        public override dynamic Visit(ProcedureDeclarationNode node)
+        {
+            return VisitFunctionOrProcedureDeclarationNode(node);
         }
 
         public override dynamic Visit(FunctionDeclarationNode node)
         {
-            var id = node.Id.Accept(this);
-            var type = node.Type.Accept(this);
-
-            if (!CurrentScope.SymbolTable.AddSymbol(new UserFunction
-            {
-                Name = id,
-                Node = node,
-                PrimitiveType = type
-            }))
-            {
-                throw new Exception($"function {id} already declared");
-            }
-
-            EnterScope(ScopeType.Function);
-
-            foreach (ParameterNode par in node.Parameters)
-            {
-                var parId = par.Id.Accept(this);
-                var parType = par.Type.Accept(this);
-                var subType = PrimitiveType.Void;
-                var size = -1;
-
-                if (par.Type is ArrayTypeNode atn)
-                {
-                    parType = PrimitiveType.Array;
-                    subType = atn.SubType;
-                    size = atn.Size.Accept(this) ?? -1;
-                }
-                
-                if (!CurrentScope.SymbolTable.AddSymbol(new Variable
-                {
-                    Node = par,
-                    Name = parId,
-                    PrimitiveType = parType,
-                    SubType = subType,
-                    Size = size
-                }))
-                {
-                    throw new Exception($"function parameter {parId} already declared");
-                }
-            }
-
-            node.Scope = CurrentScope;
-            node.Statement.Scope = CurrentScope;
-            CurrentScope.Node = node;
-            node.Statement.Accept(this);
-            ExitScope();
-
-            return node;
+            return VisitFunctionOrProcedureDeclarationNode(node);
         }
 
         public override dynamic Visit(ParameterNode node)
@@ -359,7 +303,7 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(ScopeStatementListNode node)
         {
-            EnterScope(ScopeType.Unknown); // TODO
+            CreateScope(ScopeType.Unknown); // TODO
             node.Left.Scope = CurrentScope;
             node.Right.Scope = CurrentScope;
             node.Left.Accept(this);
@@ -367,6 +311,11 @@ namespace ScopeAnalyze
             ExitScope();
 
             return node;
+        }
+
+        public override dynamic Visit(VariableNode node)
+        {
+            return null;
         }
     }
 }

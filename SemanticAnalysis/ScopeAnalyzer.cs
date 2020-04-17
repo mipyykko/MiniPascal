@@ -24,8 +24,11 @@ namespace ScopeAnalyze
                 SymbolTable =  symbols
             };
             
+            // first run: allocate scopes and put variables and functions in correct scopes
             var v1 = new ScopeVisitor(scope);
-            var v2 = new SecondVisitor();
+            var v2 = new TypeVisitor(scope);
+            
+            // var v2 = new SecondVisitor();
 
             n.Accept(v1);
             n.Accept(v2);

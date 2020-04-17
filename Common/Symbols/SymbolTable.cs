@@ -123,7 +123,7 @@ namespace Common.Symbols
         
         public override string ToString()
         {
-            return string.Join("\n", _symbols.Values);
+            return string.Join("\n", _symbols.Keys.Select(k => $"{k}: {_symbols[k]}"));
         }
     }
 }

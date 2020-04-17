@@ -169,6 +169,33 @@ namespace Common.AST
         }
     }
 
+    public class VariableNode : IdNode
+    {
+        public override string Name => "Variable";
+
+        public Node IndexExpression = new NoOpNode();
+        public VariableNode ReferenceNode;
+
+        public override Token Token { get; set; }
+        public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
+
+        public override string ToString()
+        {
+            return $"{Name} {Id}{(IndexExpression is NoOpNode ? "" : $"[{IndexExpression}]")}";
+        }
+
+        public override string AST(int depth = 0)
+        {
+            return $"{Spaces(depth)}[{Name}\n" +
+                   $"{Id.AST(depth + 1)}" +
+                   $"{IndexExpression.AST(depth + 1)}" + 
+                   //$"{(IndexExpression is NoOpNode ? "" : $"\n{IndexExpression.AST(depth + 2)}{Spaces(depth + 1)}")}" +
+                   (Type != null ? $"{Type.AST(depth + 1)}" : "") +
+                   $"{Spaces(depth)}]\n";
+        }
+        
+    }
+
     public class BinaryOpNode : Node
     {
         public override string Name => "BinaryOp";
@@ -239,20 +266,20 @@ namespace Common.AST
     {
         public override string Name => "Size";
 
-        public Node Expression;
+        public VariableNode Variable;
         
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string ToString()
         {
-            return $"{Name} {Expression}";
+            return $"{Name} {Variable}";
         }
 
         public override string AST(int depth = 0)
         {
             return $"{Spaces(depth)}[{Name}\n" +
-                   $"{Expression.AST(depth + 1)}{Spaces(depth)}]\n";
+                   $"{Variable.AST(depth + 1)}{Spaces(depth)}]\n";
         }
     }
 
@@ -260,23 +287,21 @@ namespace Common.AST
     {
         public override string Name => "Identifier";
 
-        public Node IndexExpression = new NoOpNode();
-        public IdentifierNode ReferenceNode;
+        /*public Node IndexExpression = new NoOpNode();
+        public IdentifierNode ReferenceNode;*/
         
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string ToString()
         {
-            return $"{Name} {Token.Content}{(IndexExpression is NoOpNode ? "" : $"[{IndexExpression}]")}";
+            return $"{Name} {Token.Content}";
         }
 
         public override string AST(int depth = 0)
         {
             return $"{Spaces(depth)}[{Name}\n" +
-                   $"{Spaces(depth+1)}[{Token.Content}" +
-                   $"{(IndexExpression is NoOpNode ? "" : $"\n{IndexExpression.AST(depth + 2)}{Spaces(depth + 1)}")}]\n" +
-                   (Type != null ? $"{Type.AST(depth + 1)}" : "") +
+                   $"{Spaces(depth+1)}[{Token.Content}]\n" +
                    $"{Spaces(depth)}]\n";
         }
     }
@@ -512,7 +537,7 @@ namespace Common.AST
         public override string Name => "ArrayType";
 
         public PrimitiveType SubType;
-        public Node Size;
+        public Node Size = new NoOpNode();
         
         public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
@@ -523,7 +548,7 @@ namespace Common.AST
         }
         public override string AST(int depth = 0)
         {
-            return $"{Spaces(depth)}[{Name}\n{Spaces(depth+1)}[{PrimitiveType}]\n" +
+            return $"{Spaces(depth)}[{Name}\n{Spaces(depth+1)}[{SubType}]\n" +
                    $"{(Size is NoOpNode ? "" : Size.AST(depth + 1))}{Spaces(depth)}]\n";
         }
     }

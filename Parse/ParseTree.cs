@@ -107,19 +107,24 @@ namespace Parse
             var id = (IdentifierNode) p[0];
             var n = p[1] is TreeNode ? UnwrapTreeNode(p[1]) : p[1];
 
-            if (n == null) return id;
+            // if (n == null) return id;
             
             if (n is List<Node>)
             {
                 return new CallNode
                 {
                     Id = id,
+                    Token = id.Token,
                     Arguments = n
                 };
             }
-        
-            id.IndexExpression = n;
-            return id;
+
+            return new VariableNode
+            {
+                Id = id,
+                Token = id.Token,
+                IndexExpression = n ?? NoOpStatement,
+            };
         }
         
         public static Node AssignmentStatement(dynamic[] p)
@@ -298,7 +303,7 @@ namespace Parse
 
             return new SizeNode
             {
-                Expression = p[0]
+                Variable = p[0]
             };
         }
 
@@ -316,9 +321,12 @@ namespace Parse
             IdentifierNode node = p[0];
             if (p.Length < 2 || p[1] == null) return node;
 
-            node.IndexExpression = p[1];
-
-            return node;
+            return new VariableNode
+            {
+                Token = node.Token,
+                Id = node,
+                IndexExpression = p[1] ?? NoOpStatement
+            };
         }
 
         public static Node Literal(dynamic[] p)
