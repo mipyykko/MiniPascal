@@ -6,7 +6,7 @@ namespace ScopeAnalyze
 {
     public class ScopeAnalyzer
     {
-        public void Analyze(Node n)
+        public static void Analyze(Node n)
         {
             var symbols = new SymbolTable();
             symbols.AddSymbol(new BuiltinFunction
@@ -21,17 +21,18 @@ namespace ScopeAnalyze
             var scope = new Scope
             {
                 ScopeType = ScopeType.Main,
-                SymbolTable =  symbols
+                SymbolTable = symbols
             };
             
-            // first run: allocate scopes and put variables and functions in correct scopes
             var v1 = new ScopeVisitor(scope);
-            var v2 = new TypeVisitor(scope);
+            var v2 = new BuiltinVisitor(scope);
+            var v3 = new TypeVisitor(scope);
             
             // var v2 = new SecondVisitor();
 
             n.Accept(v1);
             n.Accept(v2);
+            n.Accept(v3);
         } 
     }
 }

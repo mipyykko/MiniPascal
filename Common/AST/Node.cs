@@ -10,8 +10,8 @@ namespace Common.AST
     {
         public virtual string Name => "Node";
         
-        public dynamic Value { get; set; }
-        public abstract Token Token { get; set; }
+        // public dynamic Value { get; set; }
+        public Token Token { get; set; }
         public TypeNode Type { get; set; }
         public Scope Scope { get; set; }
 
@@ -32,7 +32,6 @@ namespace Common.AST
     {
         public override string Name => "NoOp";
         
-        public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
     }
 
@@ -40,11 +39,10 @@ namespace Common.AST
     {
         public override string Name => "Program";
 
-        public Node Id;
-        public Node DeclarationBlock;
-        public Node MainBlock;
+        public Node Id { get; set; }
+        public Node DeclarationBlock { get; set; }
+        public Node MainBlock { get; set; }
         
-        public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string ToString()
@@ -54,7 +52,6 @@ namespace Common.AST
 
         public override string AST(int depth = 0)
         {
-            // TODO: add declarationblock
             return $"{Spaces(depth)}[{Name}\n" +
                    $"{Id.AST(depth + 1)}" +
                    $"{DeclarationBlock.AST(depth + 1)}" +
@@ -65,10 +62,9 @@ namespace Common.AST
     {
         public override string Name => "StatementList";
 
-        public Node Left;
-        public Node Right;
-        
-        public override Token Token { get; set; }
+        public Node Left { get; set; }
+        public Node Right { get; set; }
+
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string ToString()
@@ -93,10 +89,9 @@ namespace Common.AST
     {
         public override string Name => "DeclarationList";
 
-        public Node Left;
-        public Node Right;
+        public Node Left { get; set; }
+        public Node Right { get; set; }
         
-        public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string ToString()
@@ -120,10 +115,9 @@ namespace Common.AST
     {
         public override string Name => "Assignment";
 
-        public Node IndexExpression = new NoOpNode();
-        public Node Expression;
+        public Node IndexExpression { get; set; } = new NoOpNode();
+        public Node Expression { get; set; }
         
-        public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string ToString()
@@ -143,10 +137,9 @@ namespace Common.AST
     {
         public override string Name => "Call";
 
-        public List<Node> Arguments; // ExpressionNode
-        public FunctionOrProcedureDeclarationNode Function;
+        public List<Node> Arguments { get; set; } // ExpressionNode
+        public FunctionOrProcedureDeclarationNode Function { get; set; }
         
-        public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string ToString()
@@ -156,7 +149,9 @@ namespace Common.AST
 
         public override string AST(int depth = 0)
         {
-            var sb = new StringBuilder($"{Spaces(depth)}[{Name}\n{Id.AST(depth + 1)}");
+            var sb = new StringBuilder($"{Spaces(depth)}[{Name}\n" + 
+                                       $"{Id.AST(depth + 1)}" +
+                                       (Type != null ? $"{Type.AST(depth + 1)}" : ""));
 
             foreach (var a in Arguments)
             {
@@ -173,10 +168,9 @@ namespace Common.AST
     {
         public override string Name => "Variable";
 
-        public Node IndexExpression = new NoOpNode();
-        public VariableNode ReferenceNode;
+        public Node IndexExpression { get; set; } = new NoOpNode();
+        public VariableNode ReferenceNode { get; set; }
 
-        public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string ToString()
@@ -200,10 +194,9 @@ namespace Common.AST
     {
         public override string Name => "BinaryOp";
 
-        public Node Left;
-        public Node Right;
+        public Node Left { get; set; }
+        public Node Right { get; set; }
 
-        public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string ToString()
@@ -223,9 +216,8 @@ namespace Common.AST
     {
         public override string Name => "UnaryOp";
 
-        public Node Expression;
+        public Node Expression { get; set; }
 
-        public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string ToString()
@@ -246,9 +238,8 @@ namespace Common.AST
         public override string Name => "Expression";
 
         public char Sign = '\0';
-        public Node Expression;
+        public Node Expression { get; set; }
         
-        public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string ToString()
@@ -266,9 +257,8 @@ namespace Common.AST
     {
         public override string Name => "Size";
 
-        public VariableNode Variable;
+        public VariableNode Variable { get; set; }
         
-        public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string ToString()
@@ -290,7 +280,6 @@ namespace Common.AST
         /*public Node IndexExpression = new NoOpNode();
         public IdentifierNode ReferenceNode;*/
         
-        public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string ToString()
@@ -310,7 +299,6 @@ namespace Common.AST
     {
         public override string Name => "Literal";
         
-        public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string ToString()
@@ -331,11 +319,10 @@ namespace Common.AST
     {
         public override string Name => "If";
 
-        public Node Expression;
-        public Node TrueBranch;
-        public Node FalseBranch = new NoOpNode();
+        public Node Expression { get; set; }
+        public Node TrueBranch { get; set; }
+        public Node FalseBranch { get; set; } = new NoOpNode();
         
-        public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string ToString()
@@ -357,10 +344,9 @@ namespace Common.AST
     {
         public override string Name => "While";
 
-        public Node Expression;
-        public Node Statement;
+        public Node Expression { get; set; }
+        public Node Statement { get; set; }
         
-        public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
 
@@ -382,9 +368,8 @@ namespace Common.AST
     {
         public override string Name => "VarDeclaration";
 
-        public List<Node> Ids; // IdentifierNode
+        public List<Node> Ids { get; set; } // IdentifierNode
         
-        public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string ToString()
@@ -410,15 +395,14 @@ namespace Common.AST
 
     public abstract class FunctionOrProcedureDeclarationNode : IdNode
     {
-        public Node Statement;
-        public List<Node> Parameters; // ParameterNode
+        public Node Statement { get; set; }
+        public List<Node> Parameters { get; set; } // ParameterNode
     }
 
     public class ProcedureDeclarationNode : FunctionOrProcedureDeclarationNode
     {
         public override string Name => "ProcedureDeclaration";
         
-        public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string ToString()
@@ -446,7 +430,6 @@ namespace Common.AST
     {
         public override string Name => "FunctionDeclaration";
 
-        public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string ToString()
@@ -475,10 +458,9 @@ namespace Common.AST
     {
         public override string Name => "Parameter";
 
-        public Node Id;
+        public Node Id { get; set; }
         public bool Reference { get; set; }
         
-        public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string ToString()
@@ -498,9 +480,8 @@ namespace Common.AST
     {
         public override string Name => "Type";
 
-        public PrimitiveType PrimitiveType;
+        public PrimitiveType PrimitiveType { get; set; }
         
-        public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string ToString()
@@ -518,7 +499,6 @@ namespace Common.AST
     {
         public override string Name => "SimpleType";
 
-        public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string ToString()
@@ -536,10 +516,9 @@ namespace Common.AST
     {
         public override string Name => "ArrayType";
 
-        public PrimitiveType SubType;
-        public Node Size = new NoOpNode();
+        public PrimitiveType SubType { get; set; }
+        public Node Size { get; set; } = new NoOpNode();
         
-        public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string ToString()
@@ -557,7 +536,6 @@ namespace Common.AST
     {
         public override string Name => "Return";
         
-        public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string AST(int depth = 0)
@@ -572,7 +550,6 @@ namespace Common.AST
     {
         public override string Name => "Assert";
         
-        public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string AST(int depth = 0)
@@ -588,9 +565,8 @@ namespace Common.AST
     {
         public override string Name => "ReadStatement";
 
-        public List<IdentifierNode> Variables;
+        public List<Node> Variables { get; set; }
 
-        public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
 
         public override string AST(int depth = 0)
@@ -612,9 +588,8 @@ namespace Common.AST
     {
         public override string Name => "WriteStatement";
 
-        public List<Node> Arguments; // ExpressionNode
+        public List<Node> Arguments { get; set; } // ExpressionNode
 
-        public override Token Token { get; set; }
         public override dynamic Accept(Visitor visitor) => visitor.Visit(this);
         
         public override string AST(int depth = 0)

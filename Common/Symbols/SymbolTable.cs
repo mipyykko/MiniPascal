@@ -20,14 +20,17 @@ namespace Common.Symbols
         public int Size = -1; 
     }
 
-    public class UserFunction : IVariable
+    public abstract class Function : IVariable
     {
         public List<Node> Parameters;
     }
-
-    public class BuiltinFunction : IVariable
+    
+    public class UserFunction : Function
     {
-        public List<Node> Parameters;
+    }
+
+    public class BuiltinFunction : Function
+    {
     }
     
     public enum SymbolType
@@ -78,7 +81,9 @@ namespace Common.Symbols
 
         public bool AddSymbol(IVariable variable)
         {
-            if (_symbols.ContainsKey(variable.Name))
+            var name = variable.Name.ToLower();
+            
+            if (_symbols.ContainsKey(name) && !(_symbols[name] is BuiltinFunction))
             {
                 return false;
             }

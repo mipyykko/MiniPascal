@@ -49,32 +49,22 @@ namespace Parse
             "boolean"
         };
         
-        public bool MatchStack(dynamic a, Token b)
+        public static bool MatchStack(dynamic a, Token b)
         {
             if (!(a is Production.Epsilon) && a is string)
             {
                 return a.Equals(b.Content);
             }
-            if (a is TokenType)
-            {
-                return a == b.Type;
-            }
 
-            if (a is KeywordType)
+            return a switch
             {
-                return a == b.KeywordType;
-            }
-
-            if (a is StatementType st)
-            {
-                if ((operators.Contains(st) && b.Type == TokenType.Operator)) // ||
-                    // (st == StatementType.SimpleType && b.Type == TokenType.Identifier && types.Contains(b.Content)))
-                {
-                    return true;
-                }
-            }
-
-            return false; 
+                TokenType _ => (a == b.Type),
+                KeywordType _ => (a == b.KeywordType),
+                // ||
+                // (st == StatementType.SimpleType && b.Type == TokenType.Identifier && types.Contains(b.Content)))
+                StatementType st when (operators.Contains(st) && b.Type == TokenType.Operator) => true,
+                _ => false
+            };
         }
         
         public Node BuildTree()
@@ -150,14 +140,6 @@ namespace Parse
                 toMatch = InputTokenContent;
             }
 
-            
-            /*dynamic toMatch = _inputToken.Type == TokenType.Keyword
-                ? (dynamic) _inputToken.KeywordType
-                : (dynamic) _inputToken.Type == TokenType.Operator
-                    ? (dynamic) _inputToken.Content
-                    : _inputToken.Type;
-            */
-            
             if (!Predictions.ContainsKey(top))
             {
                 throw new Exception($"no prediction exists for {top}");

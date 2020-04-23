@@ -7,6 +7,7 @@ namespace Common
         Real,
         String,
         Boolean,
-        Array
+        Array,
+        Error
     }
 }

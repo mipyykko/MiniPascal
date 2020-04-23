@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection.Metadata;
 using Common;
 using Common.AST;
 using Common.Symbols;
@@ -54,6 +55,7 @@ namespace ScopeAnalyze
 
             if (variable.PrimitiveType == PrimitiveType.Array)
             {
+                // TODO: check sizes?
                 if (indexExpressionType != null && statementType != variable.SubType)
                 {
                     throw new Exception($"type error: can't assign {statementType} to array {id} of type {variable.SubType}");
@@ -77,17 +79,113 @@ namespace ScopeAnalyze
         public override dynamic Visit(CallNode node)
         {
             var id = node.Id.Accept(this);
-            var callable = (IVariable) GetFunctionOrProcedure(id);
+            var callable = (Function) GetFunctionOrProcedure(id);
 
-            foreach (var argument in node.Arguments)
+            var arguments = node.Arguments;
+            foreach (var argument in arguments)
             {
                 argument.Accept(this);
             }
-            
+
+            var callableNode = (FunctionOrProcedureDeclarationNode) callable.Node;
+            node.Type = callableNode.Type;
+
+            /*if (callableNode == null)
+            {
+                return PrimitiveType.Void;
+            }*/
+
+            var callableParameters = callableNode.Parameters;
+
+            /*
+            if (callable is BuiltinFunction)
+            {
+                callableParameters = new List<Node>();
+
+                switch (((string) id).ToLower())
+                {
+                    case "writeln":
+                    {
+                        foreach (var arg in arguments)
+                        {
+                            
+                        }
+
+                        break;
+                    }
+                }
+            }
+            */
+
+            if (arguments.Count != callableParameters.Count)
+            {
+                throw new Exception($"wrong number of parameters given for function or procedure {id}: expected {callableParameters.Count}, got {arguments.Count}");
+            }
+
+            for (var i = 0; i < arguments.Count; i++)
+            {
+                var arg = arguments[i];
+                var argType = arg.Type.PrimitiveType;
+                var argSubType = PrimitiveType.Void;
+                var argSize = -1;
+                
+                var parameterNode = (ParameterNode) callableParameters[i];
+                var parameterId = parameterNode.Id.Accept(this);
+                
+                var parameterVariable = (Variable) GetVariable(parameterId, callableNode.Scope);
+                var parameterType = parameterVariable.PrimitiveType;
+                var parameterSubType = parameterVariable.SubType;
+                var parameterSize = -1;
+                
+                if (parameterNode.Reference && !(arg is VariableNode))
+                {
+                    throw new Exception($"wrong parameter type for {id} - {parameterId} expected a variable, got {arg}");
+                }
+
+                if (arg is VariableNode varNode)
+                {
+                    var argId = varNode.Id.Accept(this);
+                    var argVariable = (Variable) GetVariable(argId);
+                    var argIndexType = varNode.IndexExpression.Accept(this);
+
+                    if (argIndexType != null && argIndexType != PrimitiveType.Void)
+                    {
+                        argType = argVariable.SubType;
+                        argSubType = PrimitiveType.Void;
+                    }
+                    else
+                    {
+                        argType = argVariable.PrimitiveType;
+                        argSubType = argVariable.SubType;
+                        argSize = argVariable.Size;
+                    }
+                }
+
+                if (argType != parameterType)
+                {
+                    throw new Exception(
+                        $"wrong parameter type for {id} - {parameterId}: expected {parameterType}, got {argType}");
+                }
+
+                if (argType != PrimitiveType.Array) continue;
+
+                if (argSubType != parameterSubType)
+                {
+                    throw new Exception(
+                        $"wrong parameter type for {id} - array {parameterId} expected to be of subtype {parameterSubType}, got {argSubType}");
+                }
+
+                if (parameterSize >= 0 && argSize != parameterSize)
+                {
+                    throw new Exception(
+                        $"incompatible array types: expected array of size {parameterSize}, got {argSize}");
+                }
+            }
             // TODO: next up - check the argument types
-            
-            throw new NotImplementedException();
-            return callable.PrimitiveType;
+
+            var returnType = callableNode.Type.PrimitiveType;
+            // throw new NotImplementedException();
+            return returnType;
         }
 
         private static string[] RelationalOperators =
@@ -202,7 +300,20 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(VarDeclarationNode node)
         {
-            node.Ids.ForEach(id => id.Accept(this));
+            foreach (var idNode in node.Ids)
+            {
+                var id = idNode.Accept(this);
+                if (idNode.Type is ArrayTypeNode at)
+                {
+                    var size = at.Size.Accept(this);
+
+                    if (size != PrimitiveType.Integer)
+                    {
+                        throw new Exception($"array {id} size must be an integer expression");
+                    }
+                }
+            }
+
             return null;
         }
 
@@ -257,14 +368,14 @@ namespace ScopeAnalyze
         {
             var currentNode = (IdNode) FunctionStack.Peek();
             var id = currentNode.Id.Accept(this);
-            var type = node.Expression.Accept(this);
+            var type = node.Expression.Accept(this) ?? PrimitiveType.Void;
 
             if (!(node.Expression is NoOpNode) && currentNode is ProcedureDeclarationNode pn)
             {
                 throw new Exception($"cannot return a value from procedure {id}");
             }
 
-            if (node.Expression is NoOpNode && currentNode is FunctionDeclarationNode fn)
+            if (node.Expression is NoOpNode && type != PrimitiveType.Void && currentNode is FunctionDeclarationNode fn)
             {
                 throw new Exception($"must return value of {type} from function {id}");
             }
@@ -291,11 +402,27 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(ReadStatementNode node)
         {
+            foreach (var v in node.Variables)
+            {
+                v.Accept(this);
+                if (!(v is VariableNode))
+                {
+                    throw new Exception($"read statement must have a variable as a parameter, got {v}");
+                }
+            }
             return null;
         }
 
         public override dynamic Visit(WriteStatementNode node)
         {
+            foreach (var a in node.Arguments)
+            {
+                a.Accept(this);
+                if (a.Type.PrimitiveType == PrimitiveType.Void)
+                {
+                    throw new Exception($"invalid parameter {((IdNode) a).Id.Accept(this)} for writeln");
+                }
+            }
             return null;
         }
 
@@ -318,6 +445,10 @@ namespace ScopeAnalyze
             var index = node.IndexExpression.Accept(this);
             var variable = (Variable) GetVariable(id);
 
+            if (variable == null)
+            {
+                throw new Exception($"variable {id} not defined");
+            }
             if (index != null)
             {
                 if (variable.PrimitiveType != PrimitiveType.Array)

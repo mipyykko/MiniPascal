@@ -4,6 +4,10 @@ namespace Common
 {
     public class Token
     {
+        public Token()
+        {
+        }
+
         public static readonly Dictionary<string, TokenType> TrivialTokenTypes = new Dictionary<string, TokenType>
         {
             [":="] = TokenType.Assignment,

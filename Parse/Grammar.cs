@@ -14,7 +14,7 @@ namespace Parse
         private static dynamic[] Flatten(dynamic[] p) => p.Flatten().ToArray();
         private static dynamic[] PassT(dynamic[] p) => p;
         
-        public static Rule[] Rules = {
+        public static readonly Rule[] Rules = {
             Rule.Of(StatementType.ProgramStatement, 
                 Production.Of(KeywordType.Program, StatementType.Identifier, TokenType.Separator, StatementType.ProgramCont),// StatementType.DeclarationBlock, StatementType.Block, TokenType.Dot), 
                 Collect.Of(false, true, false, true), 
@@ -318,7 +318,7 @@ namespace Parse
             Rule.Of(StatementType.CallOrVariableCont, 
                 Production.Of(TokenType.OpenParen, StatementType.Arguments, TokenType.CloseParen), 
                 Collect.Of(false, true, false), 
-                Pass),
+                CallStatement),
             Rule.Of(StatementType.Variable, 
                 Production.Of(StatementType.Identifier, StatementType.VariableCont), 
                 Collect.Of(true, true), 

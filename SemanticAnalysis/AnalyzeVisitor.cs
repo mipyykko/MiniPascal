@@ -41,9 +41,12 @@ namespace ScopeAnalyze
 
         protected Scope CurrentScope => Scopes.Peek();
         
-        protected IVariable GetVariable(string id)
+        protected IVariable GetVariable(string id, Scope s = null)
         {
-            var s = CurrentScope;
+            if (s == null)
+            {
+                s = CurrentScope;
+            }
 
             while (s != null)
             {
@@ -59,16 +62,19 @@ namespace ScopeAnalyze
             
         }
 
-        protected bool CheckVariable(string id) => GetVariable(id) != null;
+        protected bool CheckVariable(string id, Scope s = null) => GetVariable(id, s) != null;
 
-        protected IVariable GetFunctionOrProcedure(string id)
+        protected IVariable GetFunctionOrProcedure(string id, Scope s = null)
         {
-            var s = CurrentScope;
+            if (s == null)
+            {
+                s = CurrentScope;
+            }
 
             while (s != null)
             {
                 var sym = s.SymbolTable.GetSymbol(id);
-                if (sym is BuiltinFunction || sym is UserFunction)
+                if (sym is Function)
                 {
                     return sym;
                 }
@@ -78,6 +84,6 @@ namespace ScopeAnalyze
             return null;
         }
 
-        protected bool CheckFunctionOrProcedure(string id) => GetFunctionOrProcedure(id) != null;
+        protected bool CheckFunctionOrProcedure(string id, Scope s = null) => GetFunctionOrProcedure(id, s) != null;
     }
 }

@@ -7,6 +7,9 @@ using Common.Symbols;
 
 namespace ScopeAnalyze
 {
+    /**
+     * Creates scopes and stuff?
+     */
     public class ScopeVisitor : AnalyzeVisitor
     {
 
@@ -18,7 +21,7 @@ namespace ScopeAnalyze
         public override dynamic Visit(ProgramNode node)
         {
             // already in main scope
-            CurrentScope.Node = node;
+            // CurrentScope.Node = node;
             node.Scope = CurrentScope;
             
             node.DeclarationBlock.Scope = CurrentScope;
@@ -40,6 +43,10 @@ namespace ScopeAnalyze
             node.Left.Accept(this);
             node.Right.Accept(this);
 
+            if (node.Left is ReturnStatementNode && !(node.Right is NoOpNode))
+            {
+                throw new Exception($"unreachable code after return statement");
+            }
             return node;
         }
 
@@ -172,7 +179,7 @@ namespace ScopeAnalyze
         {
             var id = node.Id.Accept(this);
             
-            if (node is ProcedureDeclarationNode)
+            /*if (node is ProcedureDeclarationNode)
             {
                 if (!CurrentScope.SymbolTable.AddSymbol(new UserFunction
                 {
@@ -185,20 +192,19 @@ namespace ScopeAnalyze
                 CreateScope(ScopeType.Procedure);
             }
             else
-            {
-                var type = node.Type.Accept(this);
+            {*/
+            var type = node.Type.Accept(this);
 
-                if (!CurrentScope.SymbolTable.AddSymbol(new UserFunction
-                {
-                    Name = id,
-                    Node = node,
-                    PrimitiveType = type
-                }))
-                {
-                    throw new Exception($"function {id} already declared");
-                }
-                CreateScope(ScopeType.Function);
+            if (!CurrentScope.SymbolTable.AddSymbol(new UserFunction
+            {
+                Name = id,
+                Node = node,
+                PrimitiveType = type
+            }))
+            {
+                throw new Exception($"function {id} already declared");
             }
+            CreateScope(ScopeType.Function);
             
             foreach (ParameterNode par in node.Parameters)
             {
@@ -223,7 +229,7 @@ namespace ScopeAnalyze
                     Size = size
                 }))
                 {
-                    throw new Exception($"{(node is FunctionDeclarationNode ? "function" : "procedure")} {id} parameter {parId} already declared");
+                    throw new Exception($"{(parType == PrimitiveType.Void ? "procedure" : "function")} {id} parameter {parId} already declared");
                 }
             }
 

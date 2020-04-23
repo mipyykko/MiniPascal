@@ -1,6 +1,9 @@
 ﻿using System;
+using System.Text.Json.Serialization;
 using Scan;
 using Common;
+using Common.AST;
+using Newtonsoft.Json;
 using Parse;
 using ScopeAnalyze;
 
@@ -35,7 +38,7 @@ while i <= 19 do writeln (F (i));
 while i <= 19 do writeln (M (i));
 end. ";
             var program2 = @"program SwapAndSumThem;
-function Sum (data : array [] of integer) : integer;
+function Sum (data : array [3] of integer) : integer;
 begin
 var i, sum : integer;
  i := 0; sum := 0;
@@ -76,12 +79,16 @@ end.";
             var s = new Scanner();
             var p = new Parser(s);
 
-            var v = p.BuildTree();
+            var v = (ProgramNode) p.BuildTree();
             // TODO: add first pass scope visitor to gather functions/procedures
             var analyzer = new ScopeAnalyzer();
 
-            analyzer.Analyze(v);
-            
+            ScopeAnalyzer.Analyze(v);
+
+            /*Console.WriteLine(JsonConvert.SerializeObject(v, Formatting.Indented, new JsonSerializerSettings
+            {
+              ReferenceLoopHandling = ReferenceLoopHandling.Ignore
+            }));*/
             Console.WriteLine(v.AST());
         }
     }
