@@ -17,7 +17,10 @@ namespace ScopeAnalyze
             _scopes.Push(s);
         }
 
-        private void ExitScope() => _scopes.Pop();
+        private void ExitScope()
+        {
+            _scopes.Pop();
+        }
 
         private IVariable GetVariable(string id)
         {
@@ -26,16 +29,13 @@ namespace ScopeAnalyze
             while (s != null)
             {
                 var sym = s.SymbolTable.GetSymbol(id);
-                if (sym is Variable)
-                {
-                    return sym;
-                }
+                if (sym is Variable) return sym;
                 s = s.Parent;
             }
 
             return null;
-            
         }
+
         private bool CheckVariable(string id)
         {
             var s = CurrentScope;
@@ -43,10 +43,7 @@ namespace ScopeAnalyze
             while (s != null)
             {
                 var sym = s.SymbolTable.GetSymbol(id);
-                if (sym is Variable)
-                {
-                    return true;
-                }
+                if (sym is Variable) return true;
                 s = s.Parent;
             }
 
@@ -60,16 +57,13 @@ namespace ScopeAnalyze
             while (s != null)
             {
                 var sym = s.SymbolTable.GetSymbol(id);
-                if (sym is BuiltinFunction || sym is UserFunction)
-                {
-                    return true;
-                }
+                if (sym is BuiltinFunction || sym is UserFunction) return true;
                 s = s.Parent;
             }
 
             return false;
         }
-        
+
         public override dynamic Visit(ProgramNode node)
         {
             EnterScope(node.MainBlock.Scope);
@@ -99,19 +93,18 @@ namespace ScopeAnalyze
             var id = node.Id.Accept(this);
 
             if (CheckVariable(id)) return null;
-            
-            throw new Exception($"variable {id} not declared");;
+
+            throw new Exception($"variable {id} not declared");
+            ;
         }
 
         public override dynamic Visit(CallNode node)
         {
             var id = node.Id.Accept(this);
             var fn = CurrentScope.GetSymbol(id);
-            
-            if (!CheckFunctionOrProcedure(id))
-            {
-                throw new Exception($"function or procedure {id} not declared");
-            };
+
+            if (!CheckFunctionOrProcedure(id)) throw new Exception($"function or procedure {id} not declared");
+            ;
 
             /*while (!(fn is UserFunction) && !(fn is BuiltinFunction))
             {
@@ -125,25 +118,18 @@ namespace ScopeAnalyze
             }*/
 
             var arguments = node.Arguments;
-            foreach (var arg in arguments)
-            {
-                arg.Accept(this);
-            }
+            foreach (var arg in arguments) arg.Accept(this);
 
             node.Function = fn.Node;
             node.Type = fn.Node?.Type;
-            
-            if (node.Function == null)
-            {
-                return PrimitiveType.Void; // must be a builtin then? 
-            }
-            
+
+            if (node.Function == null) return PrimitiveType.Void; // must be a builtin then? 
+
             var fnParameters = node.Function.Parameters;
-            
+
             if (arguments.Count != fnParameters.Count)
-            {
-                throw new Exception($"wrong number of parameters given for function {id}: expected {fnParameters.Count}, got {arguments.Count}");
-            }
+                throw new Exception(
+                    $"wrong number of parameters given for function {id}: expected {fnParameters.Count}, got {arguments.Count}");
 
             for (var i = 0; i < arguments.Count; i++)
             {
@@ -152,21 +138,19 @@ namespace ScopeAnalyze
                 var pId = pn.Id.Accept(this);
 
                 var pVariable = (Variable) node.Function.Scope.GetSymbol(pId);
-                
+
                 dynamic argIndexType = PrimitiveType.Void;
                 var argType = arg.Type.PrimitiveType;
                 var argSubType = PrimitiveType.Void;
                 var argSize = -1;
 
-                var pnType = pVariable.PrimitiveType;// pn.Type.PrimitiveType;
+                var pnType = pVariable.PrimitiveType; // pn.Type.PrimitiveType;
                 var pnSubType = pVariable.SubType;
                 var pnSize = -1;
-                
+
                 if (pn.Reference && !(arg is IdentifierNode))
-                {
                     throw new Exception(
                         $"wrong parameter type for {id} - {pId}: expected a variable as a parameter, got {arg}");
-                }
 
                 if (arg is VariableNode v)
                 {
@@ -184,30 +168,24 @@ namespace ScopeAnalyze
                         argSize = c.Size;
                     }
                 }
-                
+
                 if (argType != pnType)
-                {
                     throw new Exception(
                         $"wrong parameter type for {id} - {pId}: expected {pnType}, got {argType}");
-                }
 
                 if (argType != PrimitiveType.Array) continue;
-                
+
                 if (argSubType != pnSubType)
-                {
                     throw new Exception(
                         $"wrong parameter type for {id} - array {pId} expected to be of subtype {pnSubType}, got {argSubType}");
-                }
 
-                
+
                 argSize = ((ArrayTypeNode) arg.Type).Size.Accept(this);
                 pnSize = ((ArrayTypeNode) pn.Type).Size.Accept(this);
 
                 if (pnSize != null && argSize != pnSize)
-                {
                     throw new Exception(
                         $"type error: {id} expected array {pId} to be {arg.Type}, got {pn.Type}");
-                }
             }
 
             return node.Function is ProcedureDeclarationNode ? PrimitiveType.Void : node.Function.Type.PrimitiveType;
@@ -217,7 +195,7 @@ namespace ScopeAnalyze
         {
             "=", "<>", "<", "<=", ">=", ">"
         };
-            
+
         public override dynamic Visit(BinaryOpNode node)
         {
             var left = node.Left.Accept(this);
@@ -230,15 +208,12 @@ namespace ScopeAnalyze
             var rightType = node.Right is IdentifierNode
                 ? ((Variable) CurrentScope.SymbolTable.GetSymbol(right)).PrimitiveType
                 : right;
-            
-            if (leftType != rightType)
-            {
-                throw new Exception($"type error: can't perform {left} {op} {right}");
-            }
+
+            if (leftType != rightType) throw new Exception($"type error: can't perform {left} {op} {right}");
 
             var type = RelationalOperators.Contains(op) ? PrimitiveType.Boolean : left;
 
-            node.Type.PrimitiveType = type;// TODO: not what's supposed to be
+            node.Type.PrimitiveType = type; // TODO: not what's supposed to be
 
             return type;
         }
@@ -248,11 +223,9 @@ namespace ScopeAnalyze
             var op = node.Token.Content;
             var type = node.Expression.Accept(this);
 
-            if ((type != PrimitiveType.Boolean && op == "not") ||
-                ("+-".Contains(op) && type != PrimitiveType.Integer && type != PrimitiveType.Real))
-            {
+            if (type != PrimitiveType.Boolean && op == "not" ||
+                "+-".Contains(op) && type != PrimitiveType.Integer && type != PrimitiveType.Real)
                 throw new Exception($"invalid op {op} on {type}");
-            }
 
             return type;
         }
@@ -300,7 +273,7 @@ namespace ScopeAnalyze
             EnterScope(node.Statement.Scope);
             node.Statement.Accept(this);
             ExitScope();
-            
+
             return null;
         }
 
@@ -359,16 +332,10 @@ namespace ScopeAnalyze
         public override dynamic Visit(ReturnStatementNode node)
         {
             var s = CurrentScope;
-            
-            while (s != null && !ReturnableTypes.Contains(s.ScopeType))
-            {
-                s = s.Parent;
-            }
 
-            if (s == null)
-            {
-                throw new Exception($"invalid return"); // will this ever happen?
-            }
+            while (s != null && !ReturnableTypes.Contains(s.ScopeType)) s = s.Parent;
+
+            if (s == null) throw new Exception($"invalid return"); // will this ever happen?
 
             var value = node.Expression.Accept(this);
             var type = PrimitiveType.Void;
@@ -383,10 +350,7 @@ namespace ScopeAnalyze
                 }
                 default:
                 {
-                    if (value != null)
-                    {
-                        type = value; // .Type.PrimitiveType;
-                    }
+                    if (value != null) type = value; // .Type.PrimitiveType;
 
                     break;
                 }
@@ -394,7 +358,7 @@ namespace ScopeAnalyze
 
             var id = ((IdNode) s.Node).Id.Accept(this);
             var fNode = s.Node;
-            
+
             switch (s.ScopeType)
             {
                 case ScopeType.Function:
@@ -402,14 +366,10 @@ namespace ScopeAnalyze
                     var fType = fNode.Type.PrimitiveType;
 
                     if (type == PrimitiveType.Void)
-                    {
                         throw new Exception($"function {id} must return type {fType}, tried to return null");
-                    }
 
                     if (type != fType)
-                    {
                         throw new Exception($"function {id} must return type {fType}, tried to return {type}");
-                    }
 
                     break;
                 }
@@ -424,10 +384,7 @@ namespace ScopeAnalyze
         {
             var type = node.Expression.Accept(this);
 
-            if (type != PrimitiveType.Boolean)
-            {
-                throw new Exception($"non-boolean assertion");
-            }
+            if (type != PrimitiveType.Boolean) throw new Exception($"non-boolean assertion");
 
             return null;
         }
@@ -448,11 +405,6 @@ namespace ScopeAnalyze
             node.Right.Accept(this);
 
             return null;
-        }
-
-        public override dynamic Visit(ScopeStatementListNode node)
-        {
-            throw new System.NotImplementedException();
         }
 
         public override dynamic Visit(VariableNode node)

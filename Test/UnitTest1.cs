@@ -14,16 +14,16 @@ namespace Test
     {
         private static IEnumerable<TestCaseData> ProgramCases()
         {
-            yield return new TestCaseData(typeof(IdentifierNode), typeof(NoOpNode), 
+            yield return new TestCaseData(typeof(IdentifierNode), typeof(NoOpNode),
                 typeof(StatementListNode), new dynamic[]
-            {
-                new IdentifierNode
                 {
-                    Token = new Mock<Token>().Object
-                },
-                new StatementListNode(),
-                null, 
-            });
+                    new IdentifierNode
+                    {
+                        Token = new Mock<Token>().Object
+                    },
+                    new StatementListNode(),
+                    null,
+                });
             yield return new TestCaseData(typeof(IdentifierNode), typeof(DeclarationListNode),
                 typeof(StatementListNode), new dynamic[]
                 {
@@ -42,14 +42,14 @@ namespace Test
             var node = ParseTree.Program(p);
             ((Node) node).Should().BeOfType(typeof(ProgramNode));
             node = (ProgramNode) node;
-            Assert.IsInstanceOf(id, node.Id); 
+            Assert.IsInstanceOf(id, node.Id);
             Assert.IsInstanceOf(declaration, node.DeclarationBlock);
             Assert.IsInstanceOf(main, node.MainBlock);
         }
-        
+
         private static IEnumerable<TestCaseData> DeclarationBlockCases()
         {
-            yield return new TestCaseData(typeof(NoOpNode), typeof(NoOpNode), new dynamic[]{});
+            yield return new TestCaseData(typeof(NoOpNode), typeof(NoOpNode), new dynamic[] { });
             yield return new TestCaseData(typeof(VarDeclarationNode), typeof(NoOpNode), new dynamic[]
             {
                 new VarDeclarationNode
@@ -60,11 +60,11 @@ namespace Test
             });
             yield return new TestCaseData(typeof(VarDeclarationNode), typeof(NoOpNode), new dynamic[]
             {
-              new VarDeclarationNode
-              {
-                  Ids = new List<Node>()
-              },
-              new NoOpNode()
+                new VarDeclarationNode
+                {
+                    Ids = new List<Node>()
+                },
+                new NoOpNode()
             });
             yield return new TestCaseData(typeof(VarDeclarationNode), typeof(AssignmentNode), new dynamic[]
             {
@@ -89,10 +89,10 @@ namespace Test
         {
             var id = new IdentifierNode();
             var assignment = new AssignmentNode();
-            var node = (AssignmentNode) ParseTree.AssignOrCallStatement(new dynamic[] { id, assignment });
+            var node = (AssignmentNode) ParseTree.AssignOrCallStatement(new dynamic[] {id, assignment});
             node.Should().Equals(assignment);
             node.Id.Should().Equals(id);
-            
+
             var call = new CallNode();
             var node2 = (CallNode) ParseTree.AssignOrCallStatement(new dynamic[] {id, call});
             node2.Should().Equals(call);
@@ -129,7 +129,7 @@ namespace Test
                 }
             });
         }
-        
+
         [TestCaseSource(nameof(CallOrVariableCases))]
         public void CallOrVariableTests(Type t, dynamic[] p)
         {

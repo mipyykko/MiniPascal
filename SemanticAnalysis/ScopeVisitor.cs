@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using Common;
 using Common.AST;
 using Common.Symbols;
@@ -8,22 +6,20 @@ using Common.Symbols;
 namespace ScopeAnalyze
 {
     /**
-     * Creates scopes and stuff?
+     * Creates scopes and assigns variables to them
      */
     public class ScopeVisitor : AnalyzeVisitor
     {
-
-        public ScopeVisitor(Scope scope)
+        public ScopeVisitor(Scope scope) : base(scope)
         {
-            Scopes.Push(scope);
         }
-        
+
         public override dynamic Visit(ProgramNode node)
         {
             // already in main scope
             // CurrentScope.Node = node;
             node.Scope = CurrentScope;
-            
+
             node.DeclarationBlock.Scope = CurrentScope;
             node.DeclarationBlock.Accept(this);
             node.MainBlock.Scope = CurrentScope;
@@ -44,9 +40,7 @@ namespace ScopeAnalyze
             node.Right.Accept(this);
 
             if (node.Left is ReturnStatementNode && !(node.Right is NoOpNode))
-            {
                 throw new Exception($"unreachable code after return statement");
-            }
             return node;
         }
 
@@ -71,11 +65,8 @@ namespace ScopeAnalyze
                 fn = s.GetSymbol(id);
             }*/
 
-            foreach (var arg in node.Arguments)
-            {
-                arg.Accept(this);
-            }
-            
+            foreach (var arg in node.Arguments) arg.Accept(this);
+
             /*node.Function = fn.Node;
             node.Type = fn.Node?.Type;*/
 
@@ -149,13 +140,9 @@ namespace ScopeAnalyze
                 if (idNode.Type is ArrayTypeNode at)
                 {
                     if (at.Size is NoOpNode)
-                    {
                         size = 0; // array[]
-                    }
                     else
-                    {
                         size = -1; // array[expression]
-                    }
                     subType = type;
                     type = PrimitiveType.Array;
                 }
@@ -167,9 +154,8 @@ namespace ScopeAnalyze
                     SubType = subType,
                     Size = size
                 }))
-                {
                     throw new Exception($"variable {id} already declared");
-                };
+                ;
             }
 
             return null;
@@ -178,7 +164,7 @@ namespace ScopeAnalyze
         public dynamic VisitFunctionOrProcedureDeclarationNode(FunctionOrProcedureDeclarationNode node)
         {
             var id = node.Id.Accept(this);
-            
+
             /*if (node is ProcedureDeclarationNode)
             {
                 if (!CurrentScope.SymbolTable.AddSymbol(new UserFunction
@@ -201,11 +187,9 @@ namespace ScopeAnalyze
                 Node = node,
                 PrimitiveType = type
             }))
-            {
                 throw new Exception($"function {id} already declared");
-            }
             CreateScope(ScopeType.Function);
-            
+
             foreach (ParameterNode par in node.Parameters)
             {
                 var parId = par.Id.Accept(this);
@@ -219,7 +203,7 @@ namespace ScopeAnalyze
                     subType = atn.SubType;
                     size = atn.Size is NoOpNode ? 0 : 1;
                 }
-                
+
                 if (!CurrentScope.SymbolTable.AddSymbol(new Variable
                 {
                     Node = par,
@@ -228,9 +212,8 @@ namespace ScopeAnalyze
                     SubType = subType,
                     Size = size
                 }))
-                {
-                    throw new Exception($"{(parType == PrimitiveType.Void ? "procedure" : "function")} {id} parameter {parId} already declared");
-                }
+                    throw new Exception(
+                        $"{(parType == PrimitiveType.Void ? "procedure" : "function")} {id} parameter {parId} already declared");
             }
 
             node.Scope = CurrentScope;
@@ -241,7 +224,7 @@ namespace ScopeAnalyze
 
             return null;
         }
-        
+
         public override dynamic Visit(ProcedureDeclarationNode node)
         {
             return VisitFunctionOrProcedureDeclarationNode(node);
@@ -271,7 +254,7 @@ namespace ScopeAnalyze
         {
             var size = node.Size.Accept(this);
             var type = node.Type.Accept(this);
-            
+
             return type; // TODO
         }
 
@@ -303,18 +286,6 @@ namespace ScopeAnalyze
         {
             node.Left.Accept(this);
             node.Right.Accept(this);
-
-            return node;
-        }
-
-        public override dynamic Visit(ScopeStatementListNode node)
-        {
-            CreateScope(ScopeType.Unknown); // TODO
-            node.Left.Scope = CurrentScope;
-            node.Right.Scope = CurrentScope;
-            node.Left.Accept(this);
-            node.Right.Accept(this);
-            ExitScope();
 
             return node;
         }

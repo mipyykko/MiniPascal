@@ -9,13 +9,14 @@ namespace Scan
     public class Scanner
     {
         private Text Source => Context.Source;
-        
+
         private int _startPos;
         private int _startLinePos;
 
         private char Current => Source.Current;
         private char Peek => Source.Peek;
         private bool IsExhausted => Source.IsExhausted;
+
         private (int Start, int End) TokenRange(string token)
         {
             return (_startPos, _startPos + Math.Max(0, token.Length - 1));
@@ -37,7 +38,7 @@ namespace Scan
         public Token GetNextToken()
         {
             Source.SkipSpacesAndComments();
-            
+
             if (IsExhausted) return Token.Of(TokenType.EOF, "EOF", GetSourceInfo(""));
 
             _startPos = Source.Pos;
@@ -62,9 +63,9 @@ namespace Scan
                     var kw = Token.KeywordTypes.TryGetValueOrDefault(atom);
 
                     if (kw != KeywordType.Unknown) return Token.Of(TokenType.Keyword, kw, atom, GetSourceInfo(atom));
-                    if (new[] {"true", "false"}.Includes(atom.ToLower()))
-                        return Token.Of(TokenType.BooleanValue, atom, GetSourceInfo(atom));
-                    
+                    /*if (new[] {"true", "false"}.Includes(atom.ToLower()))
+                        return Token.Of(TokenType.BooleanValue, atom, GetSourceInfo(atom));*/
+
                     return Token.Of(TokenType.Identifier, atom, GetSourceInfo(atom));
                 }
                 case TokenType.Unknown:
@@ -79,8 +80,8 @@ namespace Scan
         {
             if (Text.IsDigit(Current)) return (TokenType.Number, $"{Current}");
 
-            foreach (var token in Token.TrivialTokenTypes.Keys.Where(token => 
-                Source.Pos + token.Length <= Source.End && 
+            foreach (var token in Token.TrivialTokenTypes.Keys.Where(token =>
+                Source.Pos + token.Length <= Source.End &&
                 Source.Range(Source.Pos, token.Length).ToLower().Equals(token.ToLower())))
             {
                 Source.Advance(token.Length);
@@ -94,7 +95,7 @@ namespace Scan
         {
             var n = new StringBuilder("");
             var type = TokenType.IntegerValue;
-            
+
             while (!Source.IsExhausted && Text.IsDigit(Current))
             {
                 n.Append(Current);
@@ -102,14 +103,14 @@ namespace Scan
             }
 
             // int value
-            
+
             if (!Current.Equals('.')) return (type, n.ToString());
-            
+
             Source.Advance();
             n.Append('.');
 
             type = TokenType.RealValue;
-            
+
             while (!Source.IsExhausted && Text.IsDigit(Current))
             {
                 n.Append(Current);
@@ -117,33 +118,35 @@ namespace Scan
             }
 
             if (!char.ToLower(Current).Equals('e')) return (type, n.ToString());
-            
+
             // exponent
 
             n.Append("e");
             Source.Advance();
-            
+
             if (Current.Equals('+') || Current.Equals('-'))
             {
                 n.Append(Current);
                 Source.Advance();
             }
+
             while (!Source.IsExhausted && Text.IsDigit(Current))
             {
                 n.Append(Current);
                 Source.Advance();
             }
+
             return (type, n.ToString());
         }
-        
-        private Dictionary<char, string> Literals = new Dictionary<char, string>()
+
+        private readonly Dictionary<char, string> Literals = new Dictionary<char, string>()
         {
             ['n'] = "\n",
             ['t'] = "\t",
             ['\\'] = "\\",
             ['"'] = "\""
         };
-        
+
         private string GetStringContents()
         {
             var str = new StringBuilder();
@@ -164,6 +167,7 @@ namespace Scan
                         {
                             // TODO: error
                         }
+
                         try
                         {
                             int numberValue = short.Parse(number);
@@ -179,6 +183,7 @@ namespace Scan
                                 $"unknown special character \\{number}"
                             );*/
                         }
+
                         break;
                     case '\\' when peekedLiteral == null:
                         /*ErrorService.Add(
@@ -210,7 +215,7 @@ namespace Scan
                 true);*/
             return "";
         }
-        
+
         private string GetAtom()
         {
             var kw = new StringBuilder("");

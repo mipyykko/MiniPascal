@@ -17,14 +17,18 @@ namespace Common.Symbols
     public class Variable : IVariable
     {
         public Node ReferenceNode;
-        public int Size = -1; 
+        public int Size = -1;
+    }
+
+    public class BuiltinVariable : Variable
+    {
     }
 
     public abstract class Function : IVariable
     {
         public List<Node> Parameters;
     }
-    
+
     public class UserFunction : Function
     {
     }
@@ -32,7 +36,7 @@ namespace Common.Symbols
     public class BuiltinFunction : Function
     {
     }
-    
+
     public enum SymbolType
     {
         Unknown,
@@ -41,7 +45,7 @@ namespace Common.Symbols
         UserFunction,
         BuiltinFunction
     }
-    
+
     public class Symbol
     {
         public string Name;
@@ -50,8 +54,10 @@ namespace Common.Symbols
         public int Size;
         public (Scope, string) Reference;
 
-        public static Symbol Of(string name, SymbolType symbolType, PrimitiveType primitiveType, int size, (Scope, string) reference) =>
-            new Symbol
+        public static Symbol Of(string name, SymbolType symbolType, PrimitiveType primitiveType, int size,
+            (Scope, string) reference)
+        {
+            return new Symbol
             {
                 Name = name,
                 SymbolType = symbolType,
@@ -59,15 +65,23 @@ namespace Common.Symbols
                 Size = size,
                 Reference = reference
             };
+        }
 
-        public static Symbol Of(string name, SymbolType symbolType, PrimitiveType primitiveType) =>
-            Symbol.Of(name, symbolType, primitiveType, -1, (null, ""));
-        
-        public static Symbol Of(string name, SymbolType symbolType, PrimitiveType primitiveType, int size) => 
-            Symbol.Of(name, symbolType, primitiveType, size, (null, ""));
-        
-        public static Symbol Of(string name, SymbolType symbolType, PrimitiveType primitiveType, (Scope, string) reference) => 
-            Symbol.Of(name, symbolType, primitiveType, -1, reference);
+        public static Symbol Of(string name, SymbolType symbolType, PrimitiveType primitiveType)
+        {
+            return Of(name, symbolType, primitiveType, -1, (null, ""));
+        }
+
+        public static Symbol Of(string name, SymbolType symbolType, PrimitiveType primitiveType, int size)
+        {
+            return Of(name, symbolType, primitiveType, size, (null, ""));
+        }
+
+        public static Symbol Of(string name, SymbolType symbolType, PrimitiveType primitiveType,
+            (Scope, string) reference)
+        {
+            return Of(name, symbolType, primitiveType, -1, reference);
+        }
 
         public override string ToString()
         {
@@ -77,16 +91,23 @@ namespace Common.Symbols
 
     public class SymbolTable
     {
-        private readonly Dictionary<string, IVariable> _symbols = new Dictionary<string,IVariable>();
+        private readonly Dictionary<string, IVariable> _symbols = new Dictionary<string, IVariable>();
 
         public bool AddSymbol(IVariable variable)
         {
             var name = variable.Name.ToLower();
-            
-            if (_symbols.ContainsKey(name) && !(_symbols[name] is BuiltinFunction))
-            {
+
+            if (_symbols.ContainsKey(name) &&
+                !(_symbols[name] is BuiltinFunction) &&
+                !(_symbols[name] is BuiltinVariable))
                 return false;
-            }
+            _symbols[variable.Name.ToLower()] = variable;
+
+            return true;
+        }
+
+        public bool UpdateSymbol(IVariable variable)
+        {
             _symbols[variable.Name.ToLower()] = variable;
 
             return true;
@@ -96,11 +117,8 @@ namespace Common.Symbols
         {
             var _id = id.ToLower();
 
-            if (!_symbols.ContainsKey(_id))
-            {
-                return null;
-            }
-            
+            if (!_symbols.ContainsKey(_id)) return null;
+
             var variable = _symbols[_id];
 
             if (variable is Variable v && v.ReferenceNode != null)
@@ -116,16 +134,13 @@ namespace Common.Symbols
         public void AddReference(string id, Node node)
         {
             var _id = id.ToLower();
-            var variable = _symbols[id];
+            var variable = _symbols[_id];
 
-            if (!(variable is Variable))
-            {
-                throw new Exception($"can't add reference to variable {id}");
-            }
+            if (!(variable is Variable)) throw new Exception($"can't add reference to variable {id}");
 
             ((Variable) variable).ReferenceNode = node;
         }
-        
+
         public override string ToString()
         {
             return string.Join("\n", _symbols.Keys.Select(k => $"{k}: {_symbols[k]}"));

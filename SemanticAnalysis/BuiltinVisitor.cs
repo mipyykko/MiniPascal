@@ -11,11 +11,10 @@ namespace ScopeAnalyze
      */
     public class BuiltinVisitor : AnalyzeVisitor
     {
-        public BuiltinVisitor(Scope scope)
+        public BuiltinVisitor(Scope scope) : base(scope)
         {
-            Scopes.Push(scope);
         }
-        
+
         public override dynamic Visit(ProgramNode node)
         {
             node.DeclarationBlock.Accept(this);
@@ -36,37 +35,37 @@ namespace ScopeAnalyze
             var cn = (CallNode) node;
             var id = cn.Id.Accept(this);
             var variable = GetFunctionOrProcedure(id);
+
             if (variable is BuiltinFunction)
-            {
                 return ((string) id).ToLower() switch
                 {
                     "writeln" => new WriteStatementNode
                     {
-                        Token = cn.Token, 
+                        Token = cn.Token,
                         Arguments = cn.Arguments,
                         Type = cn.Type,
                         Scope = cn.Scope
                     },
                     "read" => new ReadStatementNode
                     {
-                        Token = cn.Token, 
+                        Token = cn.Token,
                         Variables = cn.Arguments,
                         Type = cn.Type,
                         Scope = cn.Scope
                     },
                     _ => cn
                 };
-            }
 
             return cn;
         }
+
         public override dynamic Visit(StatementListNode node)
         {
             node.Left = ReplaceCallNode(node.Left);
 
             node.Left.Accept(this);
             node.Right.Accept(this);
-            
+
             return null;
         }
 
@@ -87,7 +86,7 @@ namespace ScopeAnalyze
         {
             node.Left = ReplaceCallNode(node.Left);
             node.Right = ReplaceCallNode(node.Right);
-            
+
             node.Left.Accept(this);
             node.Right.Accept(this);
 
@@ -106,7 +105,7 @@ namespace ScopeAnalyze
         {
             node.Expression = ReplaceCallNode(node.Expression);
             node.Expression.Accept(this);
-            
+
             return null;
         }
 
@@ -147,12 +146,12 @@ namespace ScopeAnalyze
         {
             node.Expression = ReplaceCallNode(node.Expression);
             node.Statement = ReplaceCallNode(node.Statement);
-            
+
             node.Expression.Accept(this);
             EnterScope(node.Statement.Scope);
             node.Statement.Accept(this);
             ExitScope();
-            
+
             return null;
         }
 
@@ -237,13 +236,11 @@ namespace ScopeAnalyze
             return null;
         }
 
-        public override dynamic Visit(ScopeStatementListNode node)
-        {
-            throw new System.NotImplementedException();
-        }
-
         public override dynamic Visit(VariableNode node)
         {
+            node.IndexExpression = ReplaceCallNode(node.IndexExpression);
+            node.IndexExpression.Accept(this);
+
             return null;
         }
     }

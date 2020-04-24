@@ -25,50 +25,48 @@ namespace Common
             Collect = collect;
             GathererFn = gathererFn ?? (p => null);
             if (!(Production[0] is Production.Epsilon) && gathererFn == null)
-            {
                 throw new Exception($"no gatherer for non-epsilon rule {this}");
-            }
         }
 
 
-        public static Rule Of(StatementType name, Production production, Collect collect, Func<dynamic[], dynamic> gathererFn) =>
-            new Rule(name, production, collect, gathererFn);
+        public static Rule Of(StatementType name, Production production, Collect collect,
+            Func<dynamic[], dynamic> gathererFn)
+        {
+            return new Rule(name, production, collect, gathererFn);
+        }
 
         public override string ToString()
         {
             return $"Rule {Name}: {string.Join(", ", Production.Items)}";
         }
     }
-    
+
     public class Gatherer
     {
-        public Rule Rule;
+        private readonly Rule Rule;
         private Func<dynamic[], dynamic> Fn;
 
         private readonly List<dynamic> Collected = new List<dynamic>();
         public bool AllCollected => paramIdx == Rule.Collect.Items.Length;
 
         private int paramIdx = 0;
-        
+
         public void Add(dynamic item)
         {
-            if (Rule.Collect.Items.Length != Rule.Production.Items.Length)
-            {
-                throw new Exception($"illegal rule {Rule}");
-            }
+            if (Rule.Collect.Items.Length != Rule.Production.Items.Length) throw new Exception($"illegal rule {Rule}");
             if (Rule.Collect.Items.Length > 0 && paramIdx >= Rule.Collect.Items.Length)
-            {
-                throw new Exception($"too many params {Rule} - collected {string.Join(", ", Collected.ToArray())}, got {item}");
-            }
+                throw new Exception(
+                    $"too many params {Rule} - collected {string.Join(", ", Collected.ToArray())}, got {item}");
 
             var currRule = Rule.Collect[paramIdx];
-            
+
             Console.WriteLine($"Waiting for {Rule.Production[paramIdx]}, got {item}");
             if (currRule)
             {
                 Console.WriteLine($"Matched {item}");
                 Collected.Add(item);
             }
+
             paramIdx++;
         }
 
@@ -93,12 +91,14 @@ namespace Common
             Rule = rule;
         }
 
-        public static Gatherer Of(Rule rule) => new Gatherer(rule);
+        public static Gatherer Of(Rule rule)
+        {
+            return new Gatherer(rule);
+        }
 
         public override string ToString()
         {
             return $"Gatherer {Rule}, collected {string.Join(",", Collected.ToArray())}\n";
         }
     }
-
 }

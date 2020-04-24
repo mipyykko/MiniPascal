@@ -14,14 +14,14 @@ namespace Common
         IfElse,
         While
     }
-    
+
     public class Scope
     {
         public Scope Parent;
         public SymbolTable SymbolTable;
         public ScopeType ScopeType;
         public Node Node;
-        
+
         public int Level = 0;
 
         public IVariable GetSymbol(string id)
@@ -30,11 +30,8 @@ namespace Common
 
             if (symbol == null)
             {
-                if (Parent != null)
-                {
-                    return Parent.GetSymbol(id);
-                }
-                
+                if (Parent != null) return Parent.GetSymbol(id);
+
                 throw new Exception($"{id} not found");
             }
 

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Text.Json.Serialization;
 using Scan;
 using Common;
 using Common.AST;
@@ -9,9 +8,9 @@ using ScopeAnalyze;
 
 namespace MiniPascal
 {
-    class Program
+    internal class Program
     {
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
             var program = @"program MutualRecursion;
 function F (n : integer) : integer;
@@ -38,7 +37,7 @@ while i <= 19 do writeln (F (i));
 while i <= 19 do writeln (M (i));
 end. ";
             var program2 = @"program SwapAndSumThem;
-function Sum (data : array [3] of integer) : integer;
+function Sum (data : array [] of integer) : integer;
 begin
 var i, sum : integer;
  i := 0; sum := 0;
@@ -73,16 +72,21 @@ if (1 < 2) then
   else
    writeln(""noh"");
 end.";
-  
+
             Context.Source = Text.Of(program2);
 
             var s = new Scanner();
             var p = new Parser(s);
 
             var v = (ProgramNode) p.BuildTree();
-            // TODO: add first pass scope visitor to gather functions/procedures
             var analyzer = new ScopeAnalyzer();
 
+
+            /*
+             * TODO:
+             * - check array sizes where the expression is possible to evaluate
+             * - check for array type compatibility where array size is known      
+             */
             ScopeAnalyzer.Analyze(v);
 
             /*Console.WriteLine(JsonConvert.SerializeObject(v, Formatting.Indented, new JsonSerializerSettings

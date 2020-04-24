@@ -24,13 +24,13 @@ namespace Parse
             var ret = new List<Node>();
 
             if (t == null) return ret;
-            
+
             while (true)
             {
                 if (t.Left == null || t.Left is NoOpNode) return ret;
                 ret.Add(t.Left);
                 if (t.Right == null) return ret;
-                
+
                 t = t.Right;
             }
         }
@@ -58,7 +58,7 @@ namespace Parse
             var id = p[0];
             var declaration = p[1] is DeclarationListNode ? p[1] : NoOpStatement;
             var main = declaration is NoOpNode ? p[1] : p[2];
-            
+
             return new ProgramNode
             {
                 //Token = p[0],
@@ -99,7 +99,7 @@ namespace Parse
                 Right = p.Length > 1 && p[1] != null ? p[1] : NoOpStatement
             };
         }
-        
+
         /**
          * Expects
          *
@@ -126,10 +126,7 @@ namespace Parse
             Node id = p[0];
             var n = p[1];
 
-            if (n is IdNode)
-            {
-                n.Id = id;
-            }
+            if (n is IdNode) n.Id = id;
 
             return n;
         }
@@ -212,14 +209,12 @@ namespace Parse
         {
             var ids = UnwrapTreeNode(p[0]);
             var type = p[1];
-            
-            foreach (var id in ids)
-            {
-                id.Type = type;
-            }
-            
+
+            foreach (var id in ids) id.Type = type;
+
             return new VarDeclarationNode
             {
+                Type = type,
                 Ids = ids
             };
         }
@@ -284,10 +279,7 @@ namespace Parse
         {
             var reference = p[0] is Token t && t.KeywordType == KeywordType.Var;
 
-            if (reference)
-            {
-                p = p.Skip(1).ToArray();
-            }
+            if (reference) p = p.Skip(1).ToArray();
 
             var id = (IdentifierNode) p[0];
             var type = p[1];
@@ -318,7 +310,7 @@ namespace Parse
                 "string" => PrimitiveType.String,
                 _ => PrimitiveType.Void
             };
-                
+
             return new SimpleTypeNode
             {
                 Token = p[0],
@@ -336,7 +328,7 @@ namespace Parse
         {
             var type = p[0] is SimpleTypeNode ? p[0] : p[1];
             var size = p[0] is SimpleTypeNode ? NoOpStatement : p[0];
-            
+
             return new ArrayTypeNode
             {
                 Type = type,
@@ -400,10 +392,7 @@ namespace Parse
         {
             var term = p[0];
 
-            if (p[1] == null)
-            {
-                return term;
-            }
+            if (p[1] == null) return term;
 
             return new BinaryOpNode
             {
@@ -473,7 +462,7 @@ namespace Parse
         public static Node Literal(dynamic[] p)
         {
             var token = (Token) p[0];
-            
+
             return new LiteralNode
             {
                 Token = token,
@@ -504,7 +493,7 @@ namespace Parse
             {
                 Expression = p[0],
                 TrueBranch = p[1],
-                FalseBranch = p.Length > 2 && p[2] != null ? p[2] : NoOpStatement
+                FalseBranch = p.Length > 2 && p[2] != null ? p[2] : NoOpStatement
             };
         }
 
@@ -538,18 +527,22 @@ namespace Parse
 
         public static Node WriteStatement(dynamic[] p)
         {
-            
+            // will be created in semantic analysis
             return NoOpStatement;
         }
 
         public static Node ReadStatement(dynamic[] p)
         {
+            // will be created in semantic analysis
             return NoOpStatement;
         }
 
         public static Node AssertStatement(dynamic[] p)
         {
-            return NoOpStatement;
+            return new AssertStatementNode
+            {
+                Expression = p[0]
+            };
         }
     }
 }
