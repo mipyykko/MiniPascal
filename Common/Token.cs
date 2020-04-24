@@ -4,6 +4,10 @@ namespace Common
 {
     public class Token
     {
+        public Token()
+        {
+        }
+
         public static readonly Dictionary<string, TokenType> TrivialTokenTypes = new Dictionary<string, TokenType>
         {
             [":="] = TokenType.Assignment,
@@ -30,7 +34,7 @@ namespace Common
             ["and"] = TokenType.Operator,
             ["%"] = TokenType.Operator
         };
-        
+
         public static readonly Dictionary<string, KeywordType> KeywordTypes = new Dictionary<string, KeywordType>
         {
             ["and"] = KeywordType.And,
@@ -53,18 +57,21 @@ namespace Common
             ["return"] = KeywordType.Return
         };
 
-        public static PrimitiveType TokenToPrimitiveType(TokenType tt) =>
-            tt switch
+        public static PrimitiveType TokenToPrimitiveType(TokenType tt)
+        {
+            return tt switch
             {
                 TokenType.IntegerValue => PrimitiveType.Integer,
                 TokenType.RealValue => PrimitiveType.Real,
                 TokenType.StringValue => PrimitiveType.String,
                 TokenType.BooleanValue => PrimitiveType.Boolean,
                 _ => PrimitiveType.Void
-        };
+            };
+        }
 
-        public static PrimitiveType TokenContentToPrimitiveType(string s) =>
-            s switch
+        public static PrimitiveType TokenContentToPrimitiveType(string s)
+        {
+            return s switch
             {
                 "integer" => PrimitiveType.Integer,
                 "real" => PrimitiveType.Real,
@@ -72,7 +79,8 @@ namespace Common
                 "boolean" => PrimitiveType.Boolean,
                 _ => PrimitiveType.Void
             };
-        
+        }
+
         public TokenType Type { get; private set; }
         public KeywordType KeywordType { get; private set; }
         public string Content { get; private set; }

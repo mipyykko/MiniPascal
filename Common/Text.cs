@@ -34,7 +34,7 @@ namespace Common
         {
             return text.Substring(start, len);
         }
-        
+
         public void Advance(int n = 1)
         {
             if (n < 0) throw new ArgumentException();
@@ -63,7 +63,7 @@ namespace Common
 
             return p;
         }
-        
+
         public void SkipSpacesAndComments()
         {
             SkipSpaces();
@@ -98,7 +98,7 @@ namespace Common
                 SkipSpaces();
             }
         }
-        
+
         public void SkipSpaces()
         {
             var curr = Current;

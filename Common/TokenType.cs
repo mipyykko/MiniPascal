@@ -21,6 +21,7 @@ namespace Common
         IntegerValue,
         RealValue,
         BooleanValue,
-        StringValue
+        StringValue,
+        Error
     }
 }
