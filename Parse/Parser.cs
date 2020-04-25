@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Common;
 using Common.AST;
 using Scan;
@@ -62,6 +63,8 @@ namespace Parse
         {
             Stack.Push(StatementType.ProgramStatement);
 
+            var error = false;
+            
             NextToken();
 
             while (Stack.Any())
@@ -76,20 +79,107 @@ namespace Parse
                 {
                     Stack.Pop();
                     Gather(_inputToken);
+
                     NextToken();
+
+                    error = false;
                     continue;
                 }
 
-                Rule rule;
+                Rule rule = null;
 
-                try
+                error = true;
+                var alreadyPutErrorToken = false;
+                
+                var errorStack = new Stack<Gatherer>();
+                
+                /*
+                 * TODO:
+                 *
+                 * so as to remember what this is supposed to do!
+                 *
+                 * problems here:
+                 *
+                 * - it will jump way, way too far ahead - if there's an error in a
+                 *   function declaration, the earliest it can find something is
+                 *   another function declaration or the main block!
+                 * - the error nodes aren't actually put into the tree!
+                 */
+                while (error)
                 {
-                    rule = Predict();
-                }
-                catch
-                {
-                    Console.WriteLine($"error: expected {Stack.Peek()}, got {_inputToken}");
-                    break;
+                    try
+                    {
+                        rule = Predict(Stack.Peek(), _inputToken);
+                        error = false;
+                    }
+                    catch
+                    {
+                        /* - if we encounter an error in prediction:
+                         * - we find out how many items the top-of-the-stack gatherer was
+                         *   still waiting and pop them out of the stack
+                         */
+
+                        if (!alreadyPutErrorToken)
+                        {
+                            alreadyPutErrorToken = true;
+                            error = true;
+                            Console.WriteLine($"error: expected {Stack.Peek()}, got {_inputToken}");
+
+                            var left = GathererStack.Peek().Error();
+                            while (left-- > 0) Stack.Pop();
+
+                            /* - we emit an error token to an error rule and gather it only once,
+                             *   (hopefully) producing an error node
+                             * - we go to the next token
+                             */
+                            rule = Grammar.ErrorRule;
+                            _inputToken = Token.Of(
+                                TokenType.Error,
+                                KeywordType.Unknown,
+                                InputTokenContent,
+                                _inputToken.SourceInfo);
+                            GathererStack.Push(rule.Gatherer);
+                            Gather(_inputToken);
+                            NextToken();
+                        }
+
+                        var found = false;
+                        /* - we start popping out the gatherer stack, but storing the popped
+                         *     to another
+                        */
+                        while (GathererStack.Any())
+                        {
+                            errorStack.Push(GathererStack.Pop());
+                            try
+                            {
+                                /* - after each pop, we check if the next item awaited in top gatherer
+                                 *   is an ok rule with the current input token
+                                 */
+                                Predict(GathererStack.Peek().Next, _inputToken);
+                                Stack.Push(GathererStack.Peek().Next);
+                                errorStack.Clear();
+                                found = true;
+                                break;
+                                // - if so, we continue to normal prediction and continue there
+                            }
+                            catch
+                            {
+                                // ignored
+                            }
+                        }
+
+                        if (!found)
+                        {
+                            /* - if we run out of the gatherer stack, we push the popped gatherers
+                             *   back in, get the next token and try again, until we find something
+                             *   to continue from
+                             */
+                            NextToken();
+                            while (errorStack.Any()) GathererStack.Push(errorStack.Pop());
+                        }
+
+                        //break;
+                    }
                 }
 
                 if (rule.Gatherer != null)
@@ -104,27 +194,25 @@ namespace Parse
             return Program;
         }
 
-        public Rule Predict()
+        public Rule Predict(dynamic top, Token token)
         {
-            var top = Stack.Peek();
+            //var top = Stack.Peek();
 
-            dynamic toMatch = _inputToken.Type;
+            var toMatch = token.Type switch // was: InputTokenType
+            {
+                TokenType.Keyword => (dynamic) token.KeywordType, // was: InputTokenKeywordType
+                TokenType.Operator => token.Content, // InputTokenContent,
+                TokenType.Identifier when (top == StatementType.Type || top == StatementType.SimpleType ||
+                                           top == StatementType.TypeId) => token.Content, //InputTokenContent,
+                _ => token.Type// InputTokenType
+            };
 
-            if (InputTokenType == TokenType.Keyword)
-                toMatch = InputTokenKeywordType;
-            else if (InputTokenType == TokenType.Operator ||
-                     InputTokenType == TokenType.Identifier &&
-                     (top == StatementType.Type ||
-                      top == StatementType.SimpleType ||
-                      top == StatementType.TypeId))
-                toMatch = InputTokenContent;
-
-            if (!Predictions.ContainsKey(top)) throw new Exception($"no prediction exists for {top}");
+            if (!Predictions.ContainsKey(top)) throw new Exception($"Grammar error: no prediction exists for {top}");
 
             if (!Predictions[top].ContainsKey(toMatch))
             {
                 if (!Predictions[top].ContainsKey(Production.Epsilon))
-                    throw new Exception($"no prediction for {toMatch} in rule {top}");
+                     throw new Exception($"no prediction for {toMatch} in rule {top}");
 
                 Console.WriteLine($"--- ok, matching epsilon for {toMatch}");
                 return Predictions[top][Production.Epsilon];
@@ -152,7 +240,15 @@ namespace Parse
                     return;
                 }
 
-                GathererStack.Peek().Add(result);
+                if (result is ErrorNode || result is Array a && ((dynamic[]) a).Any(i => i is ErrorNode))
+                {
+                    GathererStack.Peek().Error();
+                }
+                else
+                {
+                    GathererStack.Peek().Add(result);
+                }
+
             }
         }
     }

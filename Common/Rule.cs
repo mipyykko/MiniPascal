@@ -43,12 +43,13 @@ namespace Common
 
     public class Gatherer
     {
-        private readonly Rule Rule;
+        public readonly Rule Rule;
         private Func<dynamic[], dynamic> Fn;
 
         private readonly List<dynamic> Collected = new List<dynamic>();
         public bool AllCollected => paramIdx == Rule.Collect.Items.Length;
-
+        public dynamic Next => !AllCollected ? Rule.Production.Items[paramIdx] : null;
+        
         private int paramIdx = 0;
 
         public void Add(dynamic item)
@@ -70,6 +71,13 @@ namespace Common
             paramIdx++;
         }
 
+        public int Error()
+        {
+            var ret = Rule.Collect.Items.Length - paramIdx;
+            while (paramIdx < Rule.Collect.Items.Length - 1) Add(null);
+            return ret;
+        }
+        
         public dynamic Result
         {
             get

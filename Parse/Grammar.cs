@@ -25,6 +25,9 @@ namespace Parse
             return p;
         }
 
+        public static Rule ErrorRule =
+            Rule.Of(StatementType.Error, Production.Of(TokenType.Error), Collect.Of(true), Error);
+        
         public static readonly Rule[] Rules =
         {
             Rule.Of(StatementType.ProgramStatement,

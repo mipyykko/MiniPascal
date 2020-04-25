@@ -131,13 +131,13 @@ namespace Common
         public static IEnumerable<T> Flatten<T>(this IEnumerable<T> @this)
         {
             foreach (var item in @this)
-                if (item is IEnumerable<T>)
-                    foreach (var subitem in Flatten((IEnumerable<T>) item))
+                if (item is IEnumerable<T> enumerable)
+                    foreach (var subitem in Flatten(enumerable))
                         yield return subitem;
                 else yield return item;
         }
 
-        public static string PrintList(dynamic[] l)
+        public static string PrintList(IEnumerable<dynamic> l)
         {
             return string.Join(", ", l.Select(ll => ll is Array || ll is List<dynamic> ? $"{{{PrintList(ll)}}}" : ll));
         }

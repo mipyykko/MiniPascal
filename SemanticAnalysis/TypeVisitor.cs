@@ -74,6 +74,11 @@ namespace ScopeAnalyze
             var id = node.Id.Accept(this);
             var callable = (Function) GetFunctionOrProcedure(id);
 
+            if (callable == null)
+            {
+                throw new Exception($"function or procedure {id} not declared");
+            }
+            
             var arguments = node.Arguments;
             foreach (var argument in arguments) argument.Accept(this);
 
@@ -453,6 +458,11 @@ namespace ScopeAnalyze
             };
 
             return variable.PrimitiveType;
+        }
+
+        public override dynamic Visit(ErrorNode node)
+        {
+            throw new NotImplementedException();
         }
     }
 }

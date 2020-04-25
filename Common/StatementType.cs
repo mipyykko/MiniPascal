@@ -106,6 +106,7 @@ namespace Common
         FunctionDeclaration,
         DeclarationBlockCont,
         Parameter,
-        ProgramCont
+        ProgramCont,
+        Error
     }
 }

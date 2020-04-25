@@ -79,6 +79,8 @@ end.";
             var p = new Parser(s);
 
             var v = (ProgramNode) p.BuildTree();
+            
+            Console.WriteLine(v.AST());
             var analyzer = new ScopeAnalyzer();
 
 

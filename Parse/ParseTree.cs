@@ -75,6 +75,7 @@ namespace Parse
          */
         public static Node Identifier(dynamic[] p)
         {
+            if (p[0] is ErrorNode) return p[0];
             return new IdentifierNode
             {
                 Token = p[0],
@@ -123,6 +124,8 @@ namespace Parse
          */
         public static Node AssignOrCallStatement(dynamic[] p)
         {
+            if (p[0] is ErrorNode) return p[0];
+
             Node id = p[0];
             var n = p[1];
 
@@ -139,6 +142,8 @@ namespace Parse
          */
         public static Node CallOrVariable(dynamic[] p)
         {
+            if (p[0] is ErrorNode) return p[0];
+            
             var id = (IdentifierNode) p[0];
             var n = p[1] is TreeNode ? UnwrapTreeNode(p[1]) : p[1];
 
@@ -174,6 +179,8 @@ namespace Parse
          */
         public static Node AssignmentStatement(dynamic[] p)
         {
+            if (p[0] is ErrorNode) return p[0];
+            
             var index = p.Length < 2 || p[1] == null ? NoOpStatement : p[0];
             var expr = index is NoOpNode ? p[0] : p[1];
 
@@ -191,6 +198,8 @@ namespace Parse
          */
         public static Node CallStatement(dynamic[] p)
         {
+            if (p[0] is ErrorNode) return p[0];
+            
             var arguments = UnwrapTreeNode(p[0]);
 
             return new CallNode
@@ -207,6 +216,8 @@ namespace Parse
          */
         public static Node VarDeclaration(dynamic[] p)
         {
+            if (p[0] is ErrorNode) return p[0];
+            
             var ids = UnwrapTreeNode(p[0]);
             var type = p[1];
 
@@ -229,6 +240,8 @@ namespace Parse
          */
         public static Node FunctionDeclaration(dynamic[] p)
         {
+            if (p[0] is ErrorNode) return p[0];
+            
             var id = p[0];
             var parameters = UnwrapTreeNode(p[1]);
             var type = p[2];
@@ -252,6 +265,8 @@ namespace Parse
          */
         public static Node ProcedureDeclaration(dynamic[] p)
         {
+            if (p[0] is ErrorNode) return p[0];
+            
             var id = p[0];
             var parameters = UnwrapTreeNode(p[1]);
             var block = p[2];
@@ -277,6 +292,8 @@ namespace Parse
          */
         public static Node Parameter(dynamic[] p)
         {
+            if (p[0] is ErrorNode) return p[0];
+            
             var reference = p[0] is Token t && t.KeywordType == KeywordType.Var;
 
             if (reference) p = p.Skip(1).ToArray();
@@ -301,6 +318,8 @@ namespace Parse
          */
         public static Node SimpleType(dynamic[] p)
         {
+            if (p[0] is ErrorNode) return p[0];
+            
             var token = (Token) p[0];
             var type = token.Content switch
             {
@@ -326,6 +345,8 @@ namespace Parse
          */
         public static Node ArrayType(dynamic[] p)
         {
+            if (p[0] is ErrorNode) return p[0];
+            
             var type = p[0] is SimpleTypeNode ? p[0] : p[1];
             var size = p[0] is SimpleTypeNode ? NoOpStatement : p[0];
 
@@ -347,6 +368,8 @@ namespace Parse
          */
         public static Node Expr(dynamic[] p)
         {
+            if (p[0] is ErrorNode) return p[0];
+            
             if (p.Length < 2 || p[1] == null) return p[0];
 
             return new BinaryOpNode
@@ -366,6 +389,8 @@ namespace Parse
          */
         public static Node SignTerm(dynamic[] p)
         {
+            if (p[0] is ErrorNode) return p[0];
+            
             if (p.Length < 2 || p[1] == null) return p[0];
 
             return new UnaryOpNode
@@ -390,6 +415,8 @@ namespace Parse
          */
         public static Node SimpleExprOrTerm(dynamic[] p)
         {
+            if (p[0] is ErrorNode) return p[0];
+
             var term = p[0];
 
             if (p[1] == null) return term;
@@ -410,6 +437,8 @@ namespace Parse
          */
         public static Node FactorOptSize(dynamic[] p)
         {
+            if (p[0] is ErrorNode) return p[0];
+
             if (p.Length < 2 || p[1] == null) return p[0];
 
             return new SizeNode
@@ -427,6 +456,8 @@ namespace Parse
          */
         public static Node Unary(dynamic[] p)
         {
+            if (p[0] is ErrorNode) return p[0];
+            
             return new UnaryOpNode
             {
                 Token = p[0],
@@ -442,6 +473,8 @@ namespace Parse
          */
         public static Node Variable(dynamic[] p)
         {
+            if (p[0] is ErrorNode) return p[0];
+            
             // TODO: check if we should always return variable
             IdentifierNode node = p[0];
             if (p.Length < 2 || p[1] == null) return node;
@@ -461,6 +494,8 @@ namespace Parse
          */
         public static Node Literal(dynamic[] p)
         {
+            if (p[0] is ErrorNode) return p[0];
+            
             var token = (Token) p[0];
 
             return new LiteralNode
@@ -489,6 +524,8 @@ namespace Parse
          */
         public static Node IfStatement(dynamic[] p)
         {
+            if (p[0] is ErrorNode) return p[0];
+            
             return new IfNode
             {
                 Expression = p[0],
@@ -505,6 +542,8 @@ namespace Parse
          */
         public static Node WhileStatement(dynamic[] p)
         {
+            if (p[0] is ErrorNode) return p[0];
+            
             return new WhileNode
             {
                 Expression = p[0],
@@ -519,6 +558,8 @@ namespace Parse
          */
         public static Node ReturnStatement(dynamic[] p)
         {
+            if (p[0] is ErrorNode) return p[0];
+            
             return new ReturnStatementNode
             {
                 Expression = p[0] ?? NoOpStatement
@@ -539,9 +580,19 @@ namespace Parse
 
         public static Node AssertStatement(dynamic[] p)
         {
+            if (p[0] is ErrorNode) return p[0];
+            
             return new AssertStatementNode
             {
                 Expression = p[0]
+            };
+        }
+
+        public static Node Error(dynamic[] p)
+        {
+            return new ErrorNode
+            {
+                Token = p[0]
             };
         }
     }

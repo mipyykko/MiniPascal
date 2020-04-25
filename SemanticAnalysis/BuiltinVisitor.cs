@@ -243,5 +243,10 @@ namespace ScopeAnalyze
 
             return null;
         }
+
+        public override dynamic Visit(ErrorNode node)
+        {
+            throw new System.NotImplementedException();
+        }
     }
 }

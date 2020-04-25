@@ -660,4 +660,19 @@ namespace Common.AST
             return sb.ToString();
         }
     }
+
+    public class ErrorNode : Node
+    {
+        public override string Name => "Error";
+
+        public override dynamic Accept(Visitor visitor)
+        {
+            return visitor.Visit(this);
+        }
+
+        public override string AST(int depth = 0)
+        {
+            return $"{Spaces(depth)}[{Name}]\n";
+        }
+    }
 }

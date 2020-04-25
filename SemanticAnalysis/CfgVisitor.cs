@@ -138,5 +138,10 @@ namespace ScopeAnalyze
         {
             throw new System.NotImplementedException();
         }
+
+        public override dynamic Visit(ErrorNode node)
+        {
+            throw new System.NotImplementedException();
+        }
     }
 }
