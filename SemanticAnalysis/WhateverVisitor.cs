@@ -57,7 +57,7 @@ namespace ScopeAnalyze
             while (s != null)
             {
                 var sym = s.SymbolTable.GetSymbol(id);
-                if (sym is BuiltinFunction || sym is UserFunction) return true;
+                if (sym is BuiltinFunctionVariable || sym is UserFunctionVariable) return true;
                 s = s.Parent;
             }
 

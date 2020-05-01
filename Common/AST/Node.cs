@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Common.Symbols;
 using static Common.Util;
 
 namespace Common.AST
@@ -45,7 +46,8 @@ namespace Common.AST
         public Node Id { get; set; }
         public Node DeclarationBlock { get; set; }
         public Node MainBlock { get; set; }
-
+        public Function Function { get; set; }
+        
         public override dynamic Accept(Visitor visitor)
         {
             return visitor.Visit(this);
@@ -65,12 +67,15 @@ namespace Common.AST
         }
     }
 
-    public class StatementListNode : Node
+    public abstract class BranchNode : Node
+    {
+        public Node Left { get; set; }
+        public Node Right { get; set; }        
+    }
+    
+    public class StatementListNode : BranchNode
     {
         public override string Name => "StatementList";
-
-        public Node Left { get; set; }
-        public Node Right { get; set; }
 
         public override dynamic Accept(Visitor visitor)
         {
@@ -89,12 +94,9 @@ namespace Common.AST
         }
     }
 
-    public class DeclarationListNode : Node
+    public class DeclarationListNode : BranchNode
     {
         public override string Name => "DeclarationList";
-
-        public Node Left { get; set; }
-        public Node Right { get; set; }
 
         public override dynamic Accept(Visitor visitor)
         {
@@ -202,12 +204,9 @@ namespace Common.AST
         }
     }
 
-    public class BinaryOpNode : Node
+    public class BinaryOpNode : BranchNode
     {
         public override string Name => "BinaryOp";
-
-        public Node Left { get; set; }
-        public Node Right { get; set; }
 
         public override dynamic Accept(Visitor visitor)
         {
@@ -433,6 +432,7 @@ namespace Common.AST
     {
         public Node Statement { get; set; }
         public List<Node> Parameters { get; set; } // ParameterNode
+        public Function Function { get; set; }
     }
 
     public class ProcedureDeclarationNode : FunctionOrProcedureDeclarationNode

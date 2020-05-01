@@ -24,70 +24,19 @@ namespace Common.Symbols
     {
     }
 
-    public abstract class Function : IVariable
+    public abstract class FunctionVariable : IVariable
     {
         public List<Node> Parameters;
     }
 
-    public class UserFunction : Function
+    public class UserFunctionVariable : FunctionVariable
     {
     }
 
-    public class BuiltinFunction : Function
+    public class BuiltinFunctionVariable : FunctionVariable
     {
     }
 
-    public enum SymbolType
-    {
-        Unknown,
-        Variable,
-        Reference,
-        UserFunction,
-        BuiltinFunction
-    }
-
-    public class Symbol
-    {
-        public string Name;
-        public SymbolType SymbolType;
-        public PrimitiveType PrimitiveType;
-        public int Size;
-        public (Scope, string) Reference;
-
-        public static Symbol Of(string name, SymbolType symbolType, PrimitiveType primitiveType, int size,
-            (Scope, string) reference)
-        {
-            return new Symbol
-            {
-                Name = name,
-                SymbolType = symbolType,
-                PrimitiveType = primitiveType,
-                Size = size,
-                Reference = reference
-            };
-        }
-
-        public static Symbol Of(string name, SymbolType symbolType, PrimitiveType primitiveType)
-        {
-            return Of(name, symbolType, primitiveType, -1, (null, ""));
-        }
-
-        public static Symbol Of(string name, SymbolType symbolType, PrimitiveType primitiveType, int size)
-        {
-            return Of(name, symbolType, primitiveType, size, (null, ""));
-        }
-
-        public static Symbol Of(string name, SymbolType symbolType, PrimitiveType primitiveType,
-            (Scope, string) reference)
-        {
-            return Of(name, symbolType, primitiveType, -1, reference);
-        }
-
-        public override string ToString()
-        {
-            return $"{Name}: {SymbolType}";
-        }
-    }
 
     public class SymbolTable
     {
@@ -98,7 +47,7 @@ namespace Common.Symbols
             var name = variable.Name.ToLower();
 
             if (_symbols.ContainsKey(name) &&
-                !(_symbols[name] is BuiltinFunction) &&
+                !(_symbols[name] is BuiltinFunctionVariable) &&
                 !(_symbols[name] is BuiltinVariable))
                 return false;
             _symbols[variable.Name.ToLower()] = variable;

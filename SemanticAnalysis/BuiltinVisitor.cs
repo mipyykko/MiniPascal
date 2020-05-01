@@ -36,7 +36,7 @@ namespace ScopeAnalyze
             var id = cn.Id.Accept(this);
             var variable = GetFunctionOrProcedure(id);
 
-            if (variable is BuiltinFunction)
+            if (variable is BuiltinFunctionVariable)
                 return ((string) id).ToLower() switch
                 {
                     "writeln" => new WriteStatementNode

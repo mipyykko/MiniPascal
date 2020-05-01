@@ -12,7 +12,8 @@ namespace Common
         Procedure,
         IfThen,
         IfElse,
-        While
+        While,
+        Program
     }
 
     public class Scope

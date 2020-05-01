@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Common;
 using Common.AST;
 using Common.Symbols;
@@ -12,18 +13,43 @@ namespace ScopeAnalyze
     {
         public ScopeVisitor(Scope scope) : base(scope)
         {
+            
         }
 
         public override dynamic Visit(ProgramNode node)
         {
             // already in main scope
             // CurrentScope.Node = node;
+            var main = (FunctionVariable) GetFunctionOrProcedure("$main$");
+
+            CreateScope(ScopeType.Main);
+            var mainFunction = new Function
+            {
+                Variable = main,
+                Scope = CurrentScope
+            };
             node.Scope = CurrentScope;
 
             node.DeclarationBlock.Scope = CurrentScope;
             node.DeclarationBlock.Accept(this);
-            node.MainBlock.Scope = CurrentScope;
-            node.MainBlock.Accept(this);
+            var mainNode = node.MainBlock.Accept(this);
+            mainNode.Scope = CurrentScope;
+            node.MainBlock = new FunctionDeclarationNode
+            {
+                Id = new IdentifierNode
+                {
+                    Token = Token.Of(TokenType.Identifier, main.Name, SourceInfo.Of((0,0), (0,0,0)))
+                },
+                Statement = mainNode,
+                Function = mainFunction,
+                Parameters = new List<Node>(),
+                Type = new SimpleTypeNode
+                {
+                    PrimitiveType = PrimitiveType.Void
+                },
+                Scope = CurrentScope
+            };
+
             ExitScope();
 
             return node;
@@ -181,14 +207,20 @@ namespace ScopeAnalyze
             {*/
             var type = node.Type.Accept(this);
 
-            if (!CurrentScope.SymbolTable.AddSymbol(new UserFunction
+            if (!CurrentScope.SymbolTable.AddSymbol(new UserFunctionVariable
             {
                 Name = id,
                 Node = node,
                 PrimitiveType = type
             }))
                 throw new Exception($"function {id} already declared");
+            var functionVariable = CurrentScope.SymbolTable.GetSymbol(id); 
             CreateScope(ScopeType.Function);
+            node.Function = new Function
+            {
+                Variable = functionVariable,
+                Scope = CurrentScope
+            };
 
             foreach (ParameterNode par in node.Parameters)
             {

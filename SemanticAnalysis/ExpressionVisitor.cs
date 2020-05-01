@@ -45,7 +45,7 @@ namespace ScopeAnalyze
         public override dynamic Visit(CallNode node)
         {
             var id = node.Id.Accept(this);
-            var fn = (Function) GetFunctionOrProcedure(id);
+            var fn = (FunctionVariable) GetFunctionOrProcedure(id);
             var fnNode = (FunctionDeclarationNode) fn.Node;
 
             for (var i = 0; i < node.Arguments.Count; i++)

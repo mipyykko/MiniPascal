@@ -72,7 +72,7 @@ namespace ScopeAnalyze
             while (s != null)
             {
                 var sym = s.SymbolTable.GetSymbol(id);
-                if (sym is Function) return sym;
+                if (sym is FunctionVariable) return sym;
                 s = s.Parent;
             }
 

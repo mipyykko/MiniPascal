@@ -1,82 +1,258 @@
+using System.Collections.Generic;
+using System.Linq;
 using Common;
 using Common.AST;
 
 namespace ScopeAnalyze
 {
-    public class CfgVisitor : AnalyzeVisitor
+    public class Block
     {
-        public CfgVisitor(Scope scope) : base(scope)
+        public int Index;
+        public List<Block> Parents = new List<Block>();
+        public List<Block> Children = new List<Block>();
+        public List<Node> Statements = new List<Node>();
+        public Node Node;
+
+        public void AddParent(Block b)
         {
+            Parents.Add(b);
+            foreach (var parent in Parents) parent.Children.Add(this);
         }
 
+        public void AddChild(Block b)
+        {
+            Children.Add(b);
+            b?.Parents.Add(this);
+        }
+
+        public void AddBranch(BranchBlock b)
+        {
+            AddChild(b);
+            b.TrueBlock.Parents.Append(this);
+            b.FalseBlock.Parents.Append(this);
+        }
+        
+        public void AddStatement(Node n) => Statements.Add(n);
+        public void AddStatements(IEnumerable<Node> l) => Statements.AddRange(l);
+        
+        
+    }        
+    
+    public class BranchBlock : Block
+    {
+        public Node Expression;
+        public Block TrueBlock;
+        public Block FalseBlock;
+        public Block AfterBlock;
+        
+    }
+    public class CfgVisitor : AnalyzeVisitor
+    {
+        private Block _entry, _exit;
+        private static int _blockIdx = 0;
+        private List<Block> _blocks = new List<Block>();
+        private Stack<Block> _blockStack = new Stack<Block>();
+        private Stack<Block> _childBlockStack = new Stack<Block>();
+        private Stack<Node> _nodes = new Stack<Node>();
+        private List<dynamic> _result = new List<dynamic>();
+
+        private Block CurrentBlock => _blockStack.Peek();
+        private Block CurrentChildBlock => _childBlockStack.Peek();
+        
+        public CfgVisitor(Scope scope, List<dynamic> result) : base(scope)
+        {
+            _result = result;
+            _blockStack.Push(CreateBlock());
+            _childBlockStack.Push(null);
+        }
+
+        private Block CreateBlock(List<Block> parents = null)
+        {
+            var block = new Block
+            {
+                Index = NextBlockId(),
+                Parents = parents ?? new List<Block>()
+            };
+
+            if (block.Index == 0)
+            {
+                _entry = block;
+                _exit = block;
+            }
+
+            _blocks.Add(block);
+
+            return block;
+        }
+
+        private BranchBlock CreateBranchBlock(Node expression, Block trueBlock, Block falseBlock, List<Block> parents = null)
+        {
+            var block = new BranchBlock
+            {
+                Index = NextBlockId(),
+                Expression = expression,
+                TrueBlock = trueBlock,
+                FalseBlock = falseBlock,
+                Parents = parents ?? new List<Block>()
+            };
+
+            _blocks.Add(block);
+
+            return block;
+        }
+
+        private static int NextBlockId() => _blockIdx++;
+
+        private List<Node> FlattenBranchNode(BranchNode node)
+        {
+            var statements = new List<Node> {node.Left};
+
+            var right = node.Right;
+            if (right is BranchNode b)
+            {
+                statements.AddRange(FlattenBranchNode(b));
+            }
+            else
+            {
+                statements.Add(right);
+            }
+
+            return statements;
+        }
+        
         public override dynamic Visit(ProgramNode node)
         {
-            throw new System.NotImplementedException();
+            node.DeclarationBlock.Accept(this);
+            var mainVisitor = new CfgVisitor(CurrentScope, _result);
+            mainVisitor.Visit((FunctionDeclarationNode) node.MainBlock);
+            _result.Add(mainVisitor._blocks);
+            // node.MainBlock.Accept(this);
+
+            return _result;
         }
 
         public override dynamic Visit(NoOpNode node)
         {
-            throw new System.NotImplementedException();
+            return node;
         }
 
         public override dynamic Visit(StatementListNode node)
         {
-            throw new System.NotImplementedException();
+            var statements = FlattenBranchNode(node);
+            foreach (var statement in statements)
+            {
+                statement.Accept(this);
+            }
+
+            return null;
         }
 
         public override dynamic Visit(AssignmentNode node)
         {
-            throw new System.NotImplementedException();
+            CurrentBlock.AddStatement(node);
+
+            return null;
         }
 
         public override dynamic Visit(CallNode node)
         {
-            throw new System.NotImplementedException();
+            CurrentBlock.AddStatement(node);
+
+            return node;
         }
 
         public override dynamic Visit(BinaryOpNode node)
         {
-            throw new System.NotImplementedException();
+            return null;
         }
 
         public override dynamic Visit(UnaryOpNode node)
         {
-            throw new System.NotImplementedException();
+            return null;
         }
 
         public override dynamic Visit(ExpressionNode node)
         {
-            throw new System.NotImplementedException();
+            return null;
         }
 
         public override dynamic Visit(SizeNode node)
         {
-            throw new System.NotImplementedException();
+            return null;
         }
 
         public override dynamic Visit(IdentifierNode node)
         {
-            throw new System.NotImplementedException();
+            return null;
         }
 
         public override dynamic Visit(LiteralNode node)
         {
-            throw new System.NotImplementedException();
+            return null;
         }
 
         public override dynamic Visit(IfNode node)
         {
-            throw new System.NotImplementedException();
+            var trueBlock = CreateBlock();
+            var falseBlock = node.FalseBranch is NoOpNode ? null : CreateBlock();
+            var afterBlock = CreateBlock();
+
+            trueBlock.AddChild(afterBlock);
+            falseBlock?.AddChild(afterBlock);
+            afterBlock.AddChild(CurrentChildBlock);
+
+            var ifBlock = CreateBranchBlock(node.Expression, trueBlock, falseBlock ?? afterBlock);
+
+            CurrentBlock.AddBranch(ifBlock);
+
+            _blockStack.Pop();
+            _blockStack.Push(afterBlock);
+            if (falseBlock != null) _blockStack.Push(falseBlock);
+            _blockStack.Push(trueBlock);
+
+            _childBlockStack.Push(afterBlock);
+
+            node.TrueBranch.Accept(this);
+            _blockStack.Pop();
+            node.FalseBranch.Accept(this);
+            _blockStack.Pop();
+
+            _childBlockStack.Pop();
+            
+            return null;
         }
 
         public override dynamic Visit(WhileNode node)
         {
-            throw new System.NotImplementedException();
+            var tempBlock = CreateBlock();
+            var statementBlock = CreateBlock();
+            var afterBlock = CreateBlock();
+
+            CurrentBlock.AddChild(tempBlock);
+
+            var branchBlock = CreateBranchBlock(node.Expression, statementBlock, afterBlock);
+            statementBlock.AddChild(tempBlock);
+
+            afterBlock.AddChild(CurrentChildBlock);
+            _childBlockStack.Push(tempBlock);
+
+            _blockStack.Pop();
+            _blockStack.Push(afterBlock);
+            _blockStack.Push(statementBlock);
+
+            
+            node.Statement.Accept(this);
+            _blockStack.Pop();
+            _childBlockStack.Pop();
+
+            return null;
         }
 
         public override dynamic Visit(VarDeclarationNode node)
         {
-            throw new System.NotImplementedException();
+            CurrentBlock.AddStatement(node);
+
+            return null;
         }
 
         public override dynamic Visit(ProcedureDeclarationNode node)
@@ -86,62 +262,83 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(FunctionDeclarationNode node)
         {
-            throw new System.NotImplementedException();
+            var functionVisitor = new CfgVisitor(CurrentScope, _result);
+            functionVisitor.Visit((StatementListNode) node.Statement);
+            _result.Add(functionVisitor._blocks);
+            node.Statement.Accept(this);
+
+            return null;
         }
 
         public override dynamic Visit(ParameterNode node)
         {
-            throw new System.NotImplementedException();
+            return null;
         }
 
         public override dynamic Visit(TypeNode node)
         {
-            throw new System.NotImplementedException();
+            return null;
         }
 
         public override dynamic Visit(SimpleTypeNode node)
         {
-            throw new System.NotImplementedException();
+            return null;
         }
 
         public override dynamic Visit(ArrayTypeNode node)
         {
-            throw new System.NotImplementedException();
+            return null;
         }
 
         public override dynamic Visit(ReturnStatementNode node)
         {
-            throw new System.NotImplementedException();
+            CurrentBlock.Children.Clear();
+
+            CurrentBlock.AddStatement(node);
+
+            return null;
         }
 
         public override dynamic Visit(AssertStatementNode node)
         {
-            throw new System.NotImplementedException();
+            CurrentBlock.AddStatement(node);
+
+            return null;
         }
 
         public override dynamic Visit(ReadStatementNode node)
         {
-            throw new System.NotImplementedException();
+            CurrentBlock.AddStatement(node);
+
+            return null;
         }
 
         public override dynamic Visit(WriteStatementNode node)
         {
-            throw new System.NotImplementedException();
+            CurrentBlock.AddStatement(node);
+
+            return null;
         }
 
         public override dynamic Visit(DeclarationListNode node)
         {
-            throw new System.NotImplementedException();
+            var statements = FlattenBranchNode(node);
+            foreach (var statement in statements)
+            {
+                statement.Accept(this);
+            }
+
+            return null;
         }
 
         public override dynamic Visit(VariableNode node)
         {
-            throw new System.NotImplementedException();
+            return null;
         }
 
         public override dynamic Visit(ErrorNode node)
         {
-            throw new System.NotImplementedException();
+            return null;
         }
     }
 }

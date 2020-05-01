@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Common;
 using Common.AST;
 using Common.Symbols;
@@ -9,11 +10,15 @@ namespace ScopeAnalyze
         public static void Analyze(Node n)
         {
             var symbols = new SymbolTable();
-            symbols.AddSymbol(new BuiltinFunction
+            symbols.AddSymbol(new BuiltinFunctionVariable
+            {
+                Name = "$main$"
+            });
+            symbols.AddSymbol(new BuiltinFunctionVariable
             {
                 Name = "writeln",
             });
-            symbols.AddSymbol(new BuiltinFunction
+            symbols.AddSymbol(new BuiltinFunctionVariable
             {
                 Name = "read"
             });
@@ -32,21 +37,20 @@ namespace ScopeAnalyze
 
             var scope = new Scope
             {
-                ScopeType = ScopeType.Main,
+                ScopeType = ScopeType.Program,
                 SymbolTable = symbols
             };
 
-            var v1 = new ScopeVisitor(scope);
-            var v2 = new BuiltinVisitor(scope);
-            var v3 = new TypeVisitor(scope);
-            var v4 = new ExpressionVisitor(scope);
+            var visitors = new Visitor[]
+            {
+                new ScopeVisitor(scope),
+                new BuiltinVisitor(scope),
+                new TypeVisitor(scope),
+                new ExpressionVisitor(scope),
+                new CfgVisitor(scope, new List<dynamic>())
+            };
 
-            // var v2 = new SecondVisitor();
-
-            n.Accept(v1);
-            n.Accept(v2);
-            n.Accept(v3);
-            n.Accept(v4);
+            foreach (var v in visitors) n.Accept(v);
         }
     }
 }
