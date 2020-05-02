@@ -6,5 +6,10 @@ namespace Common
     {
         public FunctionVariable Variable;
         public Scope Scope;
+
+        public override string ToString()
+        {
+            return $"Function {Scope}: {Variable}";
+        }
     }
 }

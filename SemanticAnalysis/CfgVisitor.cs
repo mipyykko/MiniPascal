@@ -5,47 +5,6 @@ using Common.AST;
 
 namespace ScopeAnalyze
 {
-    public class Block
-    {
-        public int Index;
-        public List<Block> Parents = new List<Block>();
-        public List<Block> Children = new List<Block>();
-        public List<Node> Statements = new List<Node>();
-        public Node Node;
-
-        public void AddParent(Block b)
-        {
-            Parents.Add(b);
-            foreach (var parent in Parents) parent.Children.Add(this);
-        }
-
-        public void AddChild(Block b)
-        {
-            Children.Add(b);
-            b?.Parents.Add(this);
-        }
-
-        public void AddBranch(BranchBlock b)
-        {
-            AddChild(b);
-            b.TrueBlock.Parents.Append(this);
-            b.FalseBlock.Parents.Append(this);
-        }
-        
-        public void AddStatement(Node n) => Statements.Add(n);
-        public void AddStatements(IEnumerable<Node> l) => Statements.AddRange(l);
-        
-        
-    }        
-    
-    public class BranchBlock : Block
-    {
-        public Node Expression;
-        public Block TrueBlock;
-        public Block FalseBlock;
-        public Block AfterBlock;
-        
-    }
     public class CfgVisitor : AnalyzeVisitor
     {
         private Block _entry, _exit;
@@ -54,12 +13,12 @@ namespace ScopeAnalyze
         private Stack<Block> _blockStack = new Stack<Block>();
         private Stack<Block> _childBlockStack = new Stack<Block>();
         private Stack<Node> _nodes = new Stack<Node>();
-        private List<dynamic> _result = new List<dynamic>();
+        private List<CFG> _result;
 
-        private Block CurrentBlock => _blockStack.Peek();
-        private Block CurrentChildBlock => _childBlockStack.Peek();
+        private Block CurrentBlock => _blockStack.Count > 0 ? _blockStack.Peek() : null;
+        private Block CurrentChildBlock => _childBlockStack.Count > 0 ? _childBlockStack.Peek() : null;
         
-        public CfgVisitor(Scope scope, List<dynamic> result) : base(scope)
+        public CfgVisitor(Scope scope, List<CFG> result) : base(scope)
         {
             _result = result;
             _blockStack.Push(CreateBlock());
@@ -71,7 +30,8 @@ namespace ScopeAnalyze
             var block = new Block
             {
                 Index = NextBlockId(),
-                Parents = parents ?? new List<Block>()
+                Parents = new List<Block>{ CurrentBlock }
+                //Parents = parents ?? new List<Block>()
             };
 
             if (block.Index == 0)
@@ -93,7 +53,8 @@ namespace ScopeAnalyze
                 Expression = expression,
                 TrueBlock = trueBlock,
                 FalseBlock = falseBlock,
-                Parents = parents ?? new List<Block>()
+                Parents = new List<Block>{ CurrentBlock }
+                //Parents = parents ?? new List<Block>()
             };
 
             _blocks.Add(block);
@@ -122,11 +83,13 @@ namespace ScopeAnalyze
         
         public override dynamic Visit(ProgramNode node)
         {
-            node.DeclarationBlock.Accept(this);
+            //node.MainBlock.Accept(this);
             var mainVisitor = new CfgVisitor(CurrentScope, _result);
             mainVisitor.Visit((FunctionDeclarationNode) node.MainBlock);
-            _result.Add(mainVisitor._blocks);
+            _result.AddRange(mainVisitor._result);
             // node.MainBlock.Accept(this);
+
+            node.DeclarationBlock.Accept(this);
 
             return _result;
         }
@@ -231,6 +194,7 @@ namespace ScopeAnalyze
             CurrentBlock.AddChild(tempBlock);
 
             var branchBlock = CreateBranchBlock(node.Expression, statementBlock, afterBlock);
+            tempBlock.Child = branchBlock;
             statementBlock.AddChild(tempBlock);
 
             afterBlock.AddChild(CurrentChildBlock);
@@ -264,8 +228,13 @@ namespace ScopeAnalyze
         {
             var functionVisitor = new CfgVisitor(CurrentScope, _result);
             functionVisitor.Visit((StatementListNode) node.Statement);
-            _result.Add(functionVisitor._blocks);
-            node.Statement.Accept(this);
+            var cfg = new CFG
+            {
+                Blocks = functionVisitor._blocks,
+                Function = node.Function
+            };
+            _result.Add(cfg);
+            //node.Statement.Accept(this);
 
             return null;
         }
@@ -292,7 +261,7 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(ReturnStatementNode node)
         {
-            CurrentBlock.Children.Clear();
+            CurrentBlock.Child = null;// . Children.Clear();
 
             CurrentBlock.AddStatement(node);
 

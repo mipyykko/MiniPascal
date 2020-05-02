@@ -21,6 +21,7 @@ namespace Common
         public Scope Parent;
         public SymbolTable SymbolTable;
         public ScopeType ScopeType;
+        public Function Function;
         public Node Node;
 
         public int Level = 0;
@@ -41,7 +42,7 @@ namespace Common
 
         public override string ToString()
         {
-            return $"{ScopeType} {(Parent != null ? Parent.ToString() : "")} -> {SymbolTable}";
+            return $"{ScopeType}{(Parent != null ? $"->{Parent}" : "")}";
         }
     }
 }

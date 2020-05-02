@@ -21,7 +21,7 @@ namespace ScopeAnalyze
             // already in main scope
             // CurrentScope.Node = node;
             var main = (FunctionVariable) GetFunctionOrProcedure("$main$");
-
+            
             CreateScope(ScopeType.Main);
             var mainFunction = new Function
             {
@@ -29,7 +29,7 @@ namespace ScopeAnalyze
                 Scope = CurrentScope
             };
             node.Scope = CurrentScope;
-
+            
             node.DeclarationBlock.Scope = CurrentScope;
             node.DeclarationBlock.Accept(this);
             var mainNode = node.MainBlock.Accept(this);
@@ -49,7 +49,8 @@ namespace ScopeAnalyze
                 },
                 Scope = CurrentScope
             };
-
+            main.Node = mainNode;
+            
             ExitScope();
 
             return node;
@@ -215,13 +216,16 @@ namespace ScopeAnalyze
             }))
                 throw new Exception($"function {id} already declared");
             var functionVariable = CurrentScope.SymbolTable.GetSymbol(id); 
+
             CreateScope(ScopeType.Function);
-            node.Function = new Function
+            var func = new Function
             {
                 Variable = functionVariable,
                 Scope = CurrentScope
             };
-
+            node.Function = func;
+            CurrentScope.Function = func;
+            
             foreach (ParameterNode par in node.Parameters)
             {
                 var parId = par.Id.Accept(this);
@@ -292,6 +296,7 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(ReturnStatementNode node)
         {
+            node.Function = CurrentScope.Function;
             node.Expression.Accept(this);
             return null;
         }

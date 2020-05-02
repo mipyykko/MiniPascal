@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Scan;
 using Common;
 using Common.AST;
@@ -89,7 +90,7 @@ end.";
              * - check array sizes where the expression is possible to evaluate
              * - check for array type compatibility where array size is known      
              */
-            ScopeAnalyzer.Analyze(v);
+            var cfg = ScopeAnalyzer.Analyze(v);
 
             /*Console.WriteLine(JsonConvert.SerializeObject(v, Formatting.Indented, new JsonSerializerSettings
             {

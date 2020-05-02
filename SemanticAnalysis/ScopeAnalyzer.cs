@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Common;
 using Common.AST;
@@ -7,7 +8,7 @@ namespace ScopeAnalyze
 {
     public class ScopeAnalyzer
     {
-        public static void Analyze(Node n)
+        public static List<CFG> Analyze(Node n)
         {
             var symbols = new SymbolTable();
             symbols.AddSymbol(new BuiltinFunctionVariable
@@ -47,10 +48,15 @@ namespace ScopeAnalyze
                 new BuiltinVisitor(scope),
                 new TypeVisitor(scope),
                 new ExpressionVisitor(scope),
-                new CfgVisitor(scope, new List<dynamic>())
             };
 
             foreach (var v in visitors) n.Accept(v);
+
+            var cfgVisitor = new CfgVisitor(scope, new List<CFG>());
+            var cfg = n.Accept(cfgVisitor);
+
+            Console.WriteLine(string.Join("\n", cfg));
+            return cfg;
         }
     }
 }

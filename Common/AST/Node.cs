@@ -585,6 +585,8 @@ namespace Common.AST
     {
         public override string Name => "Return";
 
+        public Function Function { get; set; }
+        
         public override dynamic Accept(Visitor visitor)
         {
             return visitor.Visit(this);

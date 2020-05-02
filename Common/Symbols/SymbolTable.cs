@@ -18,23 +18,41 @@ namespace Common.Symbols
     {
         public Node ReferenceNode;
         public int Size = -1;
+        
+        public override string ToString()
+        {
+            return $"Variable {Name}: {(PrimitiveType == PrimitiveType.Array ? $"{PrimitiveType} of {SubType}" : PrimitiveType.ToString())}";
+        }
     }
 
     public class BuiltinVariable : Variable
     {
+        public override string ToString()
+        {
+            return $"BuiltinVariable {Name}: {(PrimitiveType == PrimitiveType.Array ? $"{PrimitiveType} of {SubType}" : PrimitiveType.ToString())}";
+        }
     }
 
     public abstract class FunctionVariable : IVariable
     {
         public List<Node> Parameters;
+        
     }
 
     public class UserFunctionVariable : FunctionVariable
     {
+        public override string ToString()
+        {
+            return $"UserFunctionVariable {Name}: {(PrimitiveType == PrimitiveType.Array ? $"{PrimitiveType} of {SubType}" : PrimitiveType.ToString())}";
+        }
     }
 
     public class BuiltinFunctionVariable : FunctionVariable
     {
+        public override string ToString()
+        {
+            return $"BuiltinFunctionVariable {Name}: {(PrimitiveType == PrimitiveType.Array ? $"{PrimitiveType} of {SubType}" : PrimitiveType.ToString())}";
+        }
     }
 
 
