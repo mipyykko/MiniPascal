@@ -118,6 +118,7 @@ namespace Common.AST
     public abstract class IdNode : Node
     {
         public Node Id;
+        public IVariable Variable { get; set; } 
     }
 
     public class AssignmentNode : IdNode
@@ -490,11 +491,10 @@ namespace Common.AST
         }
     }
 
-    public class ParameterNode : Node
+    public class ParameterNode : IdNode
     {
         public override string Name => "Parameter";
 
-        public Node Id { get; set; }
         public bool Reference { get; set; }
 
         public override dynamic Accept(Visitor visitor)

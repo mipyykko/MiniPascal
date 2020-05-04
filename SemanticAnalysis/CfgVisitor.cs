@@ -86,7 +86,7 @@ namespace ScopeAnalyze
             //node.MainBlock.Accept(this);
             var mainVisitor = new CfgVisitor(CurrentScope, _result);
             mainVisitor.Visit((FunctionDeclarationNode) node.MainBlock);
-            _result.AddRange(mainVisitor._result);
+            // _result.AddRange(mainVisitor._result);
             // node.MainBlock.Accept(this);
 
             node.DeclarationBlock.Accept(this);

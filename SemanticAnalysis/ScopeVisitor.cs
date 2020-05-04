@@ -174,15 +174,17 @@ namespace ScopeAnalyze
                     type = PrimitiveType.Array;
                 }
 
-                if (!CurrentScope.SymbolTable.AddSymbol(new Variable
+                var variable = new Variable
                 {
                     Name = id,
                     PrimitiveType = type,
                     SubType = subType,
                     Size = size
-                }))
+                };
+                
+                if (!CurrentScope.SymbolTable.AddSymbol(variable))
                     throw new Exception($"variable {id} already declared");
-                ;
+                ((IdNode) idNode).Variable = variable;
             }
 
             return null;
@@ -208,14 +210,15 @@ namespace ScopeAnalyze
             {*/
             var type = node.Type.Accept(this);
 
-            if (!CurrentScope.SymbolTable.AddSymbol(new UserFunctionVariable
+            var functionVariable = new UserFunctionVariable
             {
                 Name = id,
                 Node = node,
                 PrimitiveType = type
-            }))
+            };
+            
+            if (!CurrentScope.SymbolTable.AddSymbol(functionVariable))
                 throw new Exception($"function {id} already declared");
-            var functionVariable = CurrentScope.SymbolTable.GetSymbol(id); 
 
             CreateScope(ScopeType.Function);
             var func = new Function
@@ -240,16 +243,19 @@ namespace ScopeAnalyze
                     size = atn.Size is NoOpNode ? 0 : 1;
                 }
 
-                if (!CurrentScope.SymbolTable.AddSymbol(new Variable
+                var variable = new Variable
                 {
                     Node = par,
                     Name = parId,
                     PrimitiveType = parType,
                     SubType = subType,
                     Size = size
-                }))
+                };
+                
+                if (!CurrentScope.SymbolTable.AddSymbol(variable))
                     throw new Exception(
                         $"{(parType == PrimitiveType.Void ? "procedure" : "function")} {id} parameter {parId} already declared");
+                par.Variable = variable;
             }
 
             node.Scope = CurrentScope;
