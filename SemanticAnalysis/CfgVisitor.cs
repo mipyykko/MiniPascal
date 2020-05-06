@@ -305,7 +305,38 @@ namespace ScopeAnalyze
             return null;
         }
 
+        public override dynamic Visit(ArrayDereferenceNode node)
+        {
+            return null;
+        }
+
+        public override dynamic Visit(ValueOfNode node)
+        {
+            return null;
+            throw new System.NotImplementedException();
+        }
+
         public override dynamic Visit(ErrorNode node)
+        {
+            return null;
+        }
+
+        public override dynamic Visit(IntegerValueNode node)
+        {
+            return null;
+        }
+
+        public override dynamic Visit(RealValueNode node)
+        {
+            return null;
+        }
+
+        public override dynamic Visit(StringValueNode node)
+        {
+            return null;
+        }
+
+        public override dynamic Visit(BooleanValueNode node)
         {
             return null;
         }

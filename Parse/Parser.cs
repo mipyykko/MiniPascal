@@ -214,11 +214,11 @@ namespace Parse
                 if (!Predictions[top].ContainsKey(Production.Epsilon))
                      throw new Exception($"no prediction for {toMatch} in rule {top}");
 
-                Console.WriteLine($"--- ok, matching epsilon for {toMatch}");
+                // Console.WriteLine($"--- ok, matching epsilon for {toMatch}");
                 return Predictions[top][Production.Epsilon];
             }
 
-            Console.WriteLine($"--- ok, found rule {top} for {toMatch}");
+            // Console.WriteLine($"--- ok, found rule {top} for {toMatch}");
             return Predictions[top][toMatch];
         }
 

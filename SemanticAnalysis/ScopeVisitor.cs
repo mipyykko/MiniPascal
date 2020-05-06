@@ -66,47 +66,42 @@ namespace ScopeAnalyze
             node.Left.Accept(this);
             node.Right.Accept(this);
 
-            if (node.Left is ReturnStatementNode && !(node.Right is NoOpNode))
-                throw new Exception($"unreachable code after return statement");
             return node;
         }
 
         public override dynamic Visit(AssignmentNode node)
         {
+            var lValue = node.LValue.Accept(this);
+            node.Expression.Accept(this);
+            //var id = node.Id.Accept(this);
+            //var variable = (Variable) GetVariable(id);
+
+            //node.Variable = variable;
+
             return null;
         }
 
         public override dynamic Visit(CallNode node)
         {
             var id = node.Id.Accept(this);
-            /*var fn = CurrentScope.GetSymbol(id);
-
-            while (!(fn is UserFunction) && !(fn is BuiltinFunction))
-            {
-                var s = CurrentScope.Parent;
-                if (s == null)
-                {
-                    throw new Exception($"can't call a non-function {id}");
-                }
-
-                fn = s.GetSymbol(id);
-            }*/
 
             foreach (var arg in node.Arguments) arg.Accept(this);
-
-            /*node.Function = fn.Node;
-            node.Type = fn.Node?.Type;*/
 
             return null;
         }
 
         public override dynamic Visit(BinaryOpNode node)
         {
+            node.Left.Accept(this);
+            node.Right.Accept(this);
+            
             return null;
         }
 
         public override dynamic Visit(UnaryOpNode node)
         {
+            node.Expression.Accept(this);
+            
             return null;
         }
 
@@ -132,6 +127,7 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(IfNode node)
         {
+            node.Expression.Accept(this);
             CreateScope(ScopeType.IfThen);
             node.TrueBranch.Scope = CurrentScope;
             node.TrueBranch.Accept(this);
@@ -146,6 +142,7 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(WhileNode node)
         {
+            node.Expression.Accept(this);
             CreateScope(ScopeType.While);
             node.Statement.Scope = CurrentScope;
             node.Statement.Accept(this);
@@ -179,12 +176,13 @@ namespace ScopeAnalyze
                     Name = id,
                     PrimitiveType = type,
                     SubType = subType,
-                    Size = size
+                    Size = size,
+                    Scope = CurrentScope
                 };
                 
                 if (!CurrentScope.SymbolTable.AddSymbol(variable))
                     throw new Exception($"variable {id} already declared");
-                ((IdNode) idNode).Variable = variable;
+                // ((IdNode) idNode).Variable = variable;
             }
 
             return null;
@@ -214,7 +212,8 @@ namespace ScopeAnalyze
             {
                 Name = id,
                 Node = node,
-                PrimitiveType = type
+                PrimitiveType = type,
+                Scope = CurrentScope
             };
             
             if (!CurrentScope.SymbolTable.AddSymbol(functionVariable))
@@ -243,19 +242,20 @@ namespace ScopeAnalyze
                     size = atn.Size is NoOpNode ? 0 : 1;
                 }
 
-                var variable = new Variable
+                var formal = new Formal
                 {
                     Node = par,
                     Name = parId,
                     PrimitiveType = parType,
                     SubType = subType,
-                    Size = size
+                    Size = size,
+                    Scope = CurrentScope
                 };
                 
-                if (!CurrentScope.SymbolTable.AddSymbol(variable))
+                if (!CurrentScope.SymbolTable.AddSymbol(formal))
                     throw new Exception(
                         $"{(parType == PrimitiveType.Void ? "procedure" : "function")} {id} parameter {parId} already declared");
-                par.Variable = variable;
+                par.Variable = formal;
             }
 
             node.Scope = CurrentScope;
@@ -316,6 +316,7 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(ReadStatementNode node)
         {
+            node.Variables.ForEach(n => n.Accept(this));
             return null;
         }
 
@@ -335,12 +336,50 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(VariableNode node)
         {
+            var id = node.Id.Accept(this);
+            var variable = (Variable) GetVariable(id);
+
+            node.Variable = variable;
+            return null;
+        }
+
+        public override dynamic Visit(ArrayDereferenceNode node)
+        {
+            node.LValue.Accept(this);
+            node.Expression.Accept(this);
+            node.Variable = node.LValue.Variable;
+
+            return null;
+        }
+
+        public override dynamic Visit(ValueOfNode node)
+        {
             return null;
         }
 
         public override dynamic Visit(ErrorNode node)
         {
             throw new NotImplementedException();
+        }
+
+        public override dynamic Visit(IntegerValueNode node)
+        {
+            return null;
+        }
+
+        public override dynamic Visit(RealValueNode node)
+        {
+            return null;
+        }
+
+        public override dynamic Visit(StringValueNode node)
+        {
+            return null;
+        }
+
+        public override dynamic Visit(BooleanValueNode node)
+        {
+            return null;
         }
     }
 }

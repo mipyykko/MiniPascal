@@ -71,7 +71,8 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(AssignmentNode node)
         {
-            node.IndexExpression.Accept(this);
+            node.LValue.Accept(this);
+            //node.IndexExpression.Accept(this);
             node.Expression.Accept(this);
 
             return null;
@@ -111,7 +112,7 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(SizeNode node)
         {
-            node.Variable.Accept(this);
+            node.LValue.Accept(this);
             return null;
         }
 
@@ -238,15 +239,45 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(VariableNode node)
         {
-            node.IndexExpression = ReplaceCallNode(node.IndexExpression);
-            node.IndexExpression.Accept(this);
+            return null;
+        }
+
+        public override dynamic Visit(ArrayDereferenceNode node)
+        {
+            node.Expression = ReplaceCallNode(node.Expression);
+            node.Expression.Accept(this);
 
             return null;
+        }
+
+        public override dynamic Visit(ValueOfNode node)
+        {
+            throw new System.NotImplementedException();
         }
 
         public override dynamic Visit(ErrorNode node)
         {
             throw new System.NotImplementedException();
+        }
+
+        public override dynamic Visit(IntegerValueNode node)
+        {
+            return null;
+        }
+
+        public override dynamic Visit(RealValueNode node)
+        {
+            return null;
+        }
+
+        public override dynamic Visit(StringValueNode node)
+        {
+            return null;
+        }
+
+        public override dynamic Visit(BooleanValueNode node)
+        {
+            return null;
         }
     }
 }

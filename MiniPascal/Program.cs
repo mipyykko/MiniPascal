@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using CodeGeneration;
 using Scan;
 using Common;
 using Common.AST;
@@ -42,6 +43,7 @@ function Sum (data : array [] of integer) : integer;
 begin
 var i, sum : integer;
  i := 0; sum := 0;
+data[0] := 2;
 while i < data.size do begin
  sum := sum + data [i]; i := i + 1;
 end;
@@ -55,7 +57,7 @@ end;
 begin
 var A : array [2] of integer;
  read (A [0], A [1]);
- Swap (A [0], A [1]); 
+ Swap (A[0], A [1]); 
  writeln (A [0], A [1]);
  writeln (""Sum is "", sum (A));
 end.";
@@ -96,7 +98,8 @@ end.";
             {
               ReferenceLoopHandling = ReferenceLoopHandling.Ignore
             }));*/
-            Console.WriteLine(v.AST());
+            Console.WriteLine(new Generator2(cfg).Generate());
+            // Console.WriteLine(v.AST());
         }
     }
 }

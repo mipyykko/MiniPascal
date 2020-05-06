@@ -90,7 +90,7 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(AssignmentNode node)
         {
-            var id = node.Id.Accept(this);
+            var id = ((LValueNode) node.LValue).Id.Accept(this);
 
             if (CheckVariable(id)) return null;
 
@@ -152,7 +152,7 @@ namespace ScopeAnalyze
                     throw new Exception(
                         $"wrong parameter type for {id} - {pId}: expected a variable as a parameter, got {arg}");
 
-                if (arg is VariableNode v)
+                /*if (arg is VariableNode v)
                 {
                     var c = (Variable) GetVariable(v.Id.Accept(this));
                     argIndexType = v.IndexExpression.Accept(this);
@@ -167,7 +167,7 @@ namespace ScopeAnalyze
                         argSubType = c.SubType;
                         argSize = c.Size;
                     }
-                }
+                }*/
 
                 if (argType != pnType)
                     throw new Exception(
@@ -412,7 +412,37 @@ namespace ScopeAnalyze
             throw new NotImplementedException();
         }
 
+        public override dynamic Visit(ArrayDereferenceNode node)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override dynamic Visit(ValueOfNode node)
+        {
+            throw new NotImplementedException();
+        }
+
         public override dynamic Visit(ErrorNode node)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override dynamic Visit(IntegerValueNode node)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override dynamic Visit(RealValueNode node)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override dynamic Visit(StringValueNode node)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override dynamic Visit(BooleanValueNode node)
         {
             throw new NotImplementedException();
         }

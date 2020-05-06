@@ -61,10 +61,10 @@ namespace Common
 
             var currRule = Rule.Collect[paramIdx];
 
-            Console.WriteLine($"Waiting for {Rule.Production[paramIdx]}, got {item}");
+            // Console.WriteLine($"Waiting for {Rule.Production[paramIdx]}, got {item}");
             if (currRule)
             {
-                Console.WriteLine($"Matched {item}");
+                // Console.WriteLine($"Matched {item}");
                 Collected.Add(item);
             }
 
@@ -82,14 +82,14 @@ namespace Common
         {
             get
             {
-                Console.WriteLine($"Result of {Rule}: {string.Join(", ", Collected.ToArray())}");
+                // Console.WriteLine($"Result of {Rule}: {string.Join(", ", Collected.ToArray())}");
 
                 var flat = Collected.Flatten().ToArray();
 
-                Console.WriteLine($"-- flattened {PrintList(flat)}");
+                // Console.WriteLine($"-- flattened {PrintList(flat)}");
 
                 var res = Rule.GathererFn(flat);
-                Console.WriteLine($"-- gathered? {res}");
+                // Console.WriteLine($"-- gathered? {res}");
                 return res;
             }
         }

@@ -36,7 +36,8 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(AssignmentNode node)
         {
-            var index = node.IndexExpression.Accept(this);
+            var lValue = node.LValue.Accept(this);
+            // var index = node.IndexExpression.Accept(this);
             var expression = node.Expression.Accept(this);
 
             return null;
@@ -50,21 +51,37 @@ namespace ScopeAnalyze
 
             for (var i = 0; i < node.Arguments.Count; i++)
             {
+                var parameterNode = (ParameterNode) fnNode.Parameters[i];
+
+                /*if (!parameterNode.Reference && node.Arguments[i] is LValueNode)
+                {
+                    node.Arguments[i] = new ValueOfNode
+                    {
+                        LValue = (LValueNode) node.Arguments[i]
+                    };
+                }*/
                 node.Arguments[i].Accept(this);
 
                 var argumentNode = node.Arguments[i];
                 var type = argumentNode.Type?.PrimitiveType;
-                var parameterNode = (ParameterNode) fnNode.Parameters[i];
                 var parameterId = parameterNode.Id.Accept(this);
 
-                if (!(argumentNode is VariableNode vn) || type != PrimitiveType.Array) continue;
+                if (!(argumentNode is ArrayDereferenceNode arrNode)) continue;
+
+                var argumentId = ((VariableNode) arrNode.LValue).Id.Accept(this);
+                var parameterVariable = (Variable) GetVariable(parameterId, fn.Node.Scope);
+                var argumentVariable = (Variable) GetVariable(argumentId);
+                    
+                parameterVariable.Size = argumentVariable.Size;
+                fn.Node.Scope.SymbolTable.UpdateSymbol(parameterVariable);
+                /*                if (!(argumentNode is VariableNode vn) || type != PrimitiveType.Array) continue;
 
                 var argumentId = vn.Id.Accept(this);
                 var parameterVariable = (Variable) GetVariable(parameterId, fn.Node.Scope);
                 var argumentVariable = (Variable) GetVariable(argumentId);
 
                 parameterVariable.Size = argumentVariable.Size;
-                fn.Node.Scope.SymbolTable.UpdateSymbol(parameterVariable);
+                fn.Node.Scope.SymbolTable.UpdateSymbol(parameterVariable);*/
             }
 
             return null;
@@ -122,9 +139,9 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(SizeNode node)
         {
-            node.Variable.Accept(this);
+            node.LValue.Accept(this);
 
-            var id = node.Variable.Id.Accept(this);
+            var id = node.LValue.Id.Accept(this);
             var variable = (Variable) GetVariable(id);
 
             return variable.Size;
@@ -137,6 +154,7 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(LiteralNode node)
         {
+            // deprecated
             return node.Token.Type switch
             {
                 TokenType.IntegerValue => (dynamic) int.Parse(node.Token.Content),
@@ -253,7 +271,17 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(WriteStatementNode node)
         {
-            foreach (var n in node.Arguments) n.Accept(this);
+            for (var i = 0; i < node.Arguments.Count; i++)
+            {
+                if (node.Arguments[i] is LValueNode lvn)
+                    node.Arguments[i] = new ValueOfNode
+                    {
+                        LValue = lvn,
+                        Type = lvn.Type,
+                        Token = lvn.Token
+                    };
+                node.Arguments[i].Accept(this);
+            }
 
             return null;
         }
@@ -269,20 +297,57 @@ namespace ScopeAnalyze
         public override dynamic Visit(VariableNode node)
         {
             var id = node.Id.Accept(this);
-            var index = node.IndexExpression.Accept(this);
+            /*var index = node.IndexExpression.Accept(this);
 
             var variable = (Variable) GetVariable(id);
 
             if (variable.PrimitiveType == PrimitiveType.Array)
                 if (index != null && variable.Size > 0 && (index < 0 || index >= variable.Size))
                     throw new Exception($"out of bounds error: {id} indexed with {index}");
+            */
+            return null;
+        }
 
+        public override dynamic Visit(ArrayDereferenceNode node)
+        {
+            var id = ((VariableNode) node.LValue).Id.Accept(this);
+            var index = node.Expression.Accept(this);
+            var variable = (Variable) GetVariable(id);
+            
+            if (index != null && variable.Size > 0 && (index < 0 || index >= variable.Size))
+                throw new Exception($"out of bounds error: {id} indexed with {index}");
+
+            return null;
+        }
+
+        public override dynamic Visit(ValueOfNode node)
+        {
             return null;
         }
 
         public override dynamic Visit(ErrorNode node)
         {
             throw new NotImplementedException();
+        }
+
+        public override dynamic Visit(IntegerValueNode node)
+        {
+            return node.Value;
+        }
+
+        public override dynamic Visit(RealValueNode node)
+        {
+            return node.Value;
+        }
+
+        public override dynamic Visit(StringValueNode node)
+        {
+            return node.Value;
+        }
+
+        public override dynamic Visit(BooleanValueNode node)
+        {
+            return node.Value;
         }
     }
 }

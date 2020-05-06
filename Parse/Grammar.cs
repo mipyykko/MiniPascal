@@ -346,7 +346,7 @@ namespace Parse
             Rule.Of(StatementType.Variable,
                 Production.Of(StatementType.Identifier, StatementType.VariableCont),
                 Collect.Of(true, true),
-                Variable),
+                VariableOrArrayDeference),
             Rule.Of(StatementType.VariableCont,
                 Production.EpsilonProduction,
                 Collect.None,

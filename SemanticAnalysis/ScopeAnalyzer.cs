@@ -11,36 +11,42 @@ namespace ScopeAnalyze
         public static List<CFG> Analyze(Node n)
         {
             var symbols = new SymbolTable();
-            symbols.AddSymbol(new BuiltinFunctionVariable
-            {
-                Name = "$main$"
-            });
-            symbols.AddSymbol(new BuiltinFunctionVariable
-            {
-                Name = "writeln",
-            });
-            symbols.AddSymbol(new BuiltinFunctionVariable
-            {
-                Name = "read"
-            });
-            symbols.AddSymbol(new BuiltinVariable
-            {
-                Name = "true",
-                PrimitiveType = PrimitiveType.Boolean,
-                SubType = PrimitiveType.Void
-            });
-            symbols.AddSymbol(new BuiltinVariable
-            {
-                Name = "false",
-                PrimitiveType = PrimitiveType.Boolean,
-                SubType = PrimitiveType.Void
-            });
-
             var scope = new Scope
             {
                 ScopeType = ScopeType.Program,
                 SymbolTable = symbols
             };
+
+            symbols.AddSymbol(new BuiltinFunctionVariable
+            {
+                Name = "$main$",
+                Scope = scope
+            });
+            symbols.AddSymbol(new BuiltinFunctionVariable
+            {
+                Name = "writeln",
+                Scope = scope
+            });
+            symbols.AddSymbol(new BuiltinFunctionVariable
+            {
+                Name = "read",
+                Scope = scope
+            });
+            symbols.AddSymbol(new BuiltinVariable
+            {
+                Name = "true",
+                PrimitiveType = PrimitiveType.Boolean,
+                SubType = PrimitiveType.Void,
+                Scope = scope
+            });
+            symbols.AddSymbol(new BuiltinVariable
+            {
+                Name = "false",
+                PrimitiveType = PrimitiveType.Boolean,
+                SubType = PrimitiveType.Void,
+                Scope = scope
+            });
+
 
             var visitors = new Visitor[]
             {

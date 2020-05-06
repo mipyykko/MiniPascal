@@ -43,15 +43,22 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(AssignmentNode node)
         {
-            var id = node.Id.Token.Content; // Accept(this);
-            var variable = GetVariable(id);
-            var indexExpressionType = node.IndexExpression.Accept(this);
+            // var id = node.Id.Token.Content; // Accept(this);
+            //var variable = GetVariable(id);
+            // var variable = node.Variable;
+            var id = ((LValueNode) node.LValue).Id.Accept(this);
+            var lValueType = node.LValue.Accept(this);
+            //var indexExpressionType = node.IndexExpression.Accept(this);
 
-            if (indexExpressionType != null && variable.PrimitiveType != PrimitiveType.Array)
-                throw new Exception($"cannot index a non-array variable {id}");
+            //if (indexExpressionType != null && variable.PrimitiveType != PrimitiveType.Array)
+            //    throw new Exception($"cannot index a non-array variable {id}");
             var statementType = node.Expression.Accept(this);
 
-            if (variable.PrimitiveType == PrimitiveType.Array)
+            if (statementType != lValueType)
+            {
+                throw new Exception($"type error: can't assign {statementType} to {id} of type {lValueType}");
+            }
+            /*if (variable.PrimitiveType == PrimitiveType.Array)
             {
                 // TODO: check sizes?
                 if (indexExpressionType != null && statementType != variable.SubType)
@@ -64,11 +71,42 @@ namespace ScopeAnalyze
                 if (variable.PrimitiveType != statementType)
                     throw new Exception(
                         $"type error: can't assign {statementType} to variable {id} of type {variable.PrimitiveType}");
-            }
+            }*/
 
             return null;
         }
 
+        private (PrimitiveType, PrimitiveType, int) GetArgumentInfo(Node node)
+        {
+            switch (node)
+            {
+                case ValueOfNode vofNode: return GetArgumentInfo(vofNode.LValue);
+                case VariableNode varNode:
+                {
+                    var argId = varNode.Id.Accept(this);
+                    var argVariable = (Variable) GetVariable(argId);
+
+                    return (argVariable.PrimitiveType, argVariable.SubType, argVariable.Size);
+                }
+                case ArrayDereferenceNode arrNode:
+                {
+                    var argId = ((VariableNode) arrNode.LValue).Id.Accept(this);
+                    var argVariable = (Variable) GetVariable(argId);
+                    var index = arrNode.Expression.Accept(this);
+
+                    return index != null 
+                        ? (argVariable.SubType, PrimitiveType.Void, -1) 
+                        : (PrimitiveType.Array, argVariable.SubType, argVariable.Size);
+                }
+                case ValueNode valNode:
+                {
+                    return (valNode.Type.PrimitiveType, PrimitiveType.Void, -1);
+                }
+            }
+            
+            throw new Exception();
+        }
+        
         public override dynamic Visit(CallNode node)
         {
             var id = node.Id.Accept(this);
@@ -78,50 +116,34 @@ namespace ScopeAnalyze
             {
                 throw new Exception($"function or procedure {id} not declared");
             }
-            
-            var arguments = node.Arguments;
-            foreach (var argument in arguments) argument.Accept(this);
 
             var callableNode = (FunctionOrProcedureDeclarationNode) callable.Node;
             node.Type = callableNode.Type;
-
-            /*if (callableNode == null)
-            {
-                return PrimitiveType.Void;
-            }*/
-
             var callableParameters = callableNode.Parameters;
-
-            /*
-            if (callable is BuiltinFunction)
-            {
-                callableParameters = new List<Node>();
-
-                switch (((string) id).ToLower())
-                {
-                    case "writeln":
-                    {
-                        foreach (var arg in arguments)
-                        {
-                            
-                        }
-
-                        break;
-                    }
-                }
-            }
-            */
-
-            if (arguments.Count != callableParameters.Count)
+            
+            if (node.Arguments.Count != callableParameters.Count)
                 throw new Exception(
-                    $"wrong number of parameters given for function or procedure {id}: expected {callableParameters.Count}, got {arguments.Count}");
+                    $"wrong number of parameters given for function or procedure {id}: expected {callableParameters.Count}, got {node.Arguments.Count}");
 
+            for (var i = 0; i < node.Arguments.Count; i++)
+            {
+                var parameter = (ParameterNode) callableParameters[i];
+                if (!parameter.Reference && node.Arguments[i] is LValueNode ln)
+                {
+                    node.Arguments[i] = new ValueOfNode
+                    {
+                        LValue = ln
+                    };
+                }
+
+                node.Arguments[i].Accept(this);
+            }
+
+            var arguments = node.Arguments;
+            
             for (var i = 0; i < arguments.Count; i++)
             {
                 var arg = arguments[i];
-                var argType = arg.Type.PrimitiveType;
-                var argSubType = PrimitiveType.Void;
-                var argSize = -1;
 
                 var parameterNode = (ParameterNode) callableParameters[i];
                 var parameterId = parameterNode.Id.Accept(this);
@@ -131,28 +153,11 @@ namespace ScopeAnalyze
                 var parameterSubType = parameterVariable.SubType;
                 var parameterSize = -1;
 
-                if (parameterNode.Reference && !(arg is VariableNode))
+                if (parameterNode.Reference && !(arg is LValueNode))
                     throw new Exception(
-                        $"wrong parameter type for {id} - {parameterId} expected a variable, got {arg}");
+                        $"wrong parameter type for {id} - {parameterId} expected a variable or an array dereference, got {arg}");
 
-                if (arg is VariableNode varNode)
-                {
-                    var argId = varNode.Id.Accept(this);
-                    var argVariable = (Variable) GetVariable(argId);
-                    var argIndexType = varNode.IndexExpression.Accept(this);
-
-                    if (argIndexType != null && argIndexType != PrimitiveType.Void)
-                    {
-                        argType = argVariable.SubType;
-                        argSubType = PrimitiveType.Void;
-                    }
-                    else
-                    {
-                        argType = argVariable.PrimitiveType;
-                        argSubType = argVariable.SubType;
-                        argSize = argVariable.Size;
-                    }
-                }
+                var (argType, argSubType, argSize) = GetArgumentInfo(arg);
 
                 if (argType != parameterType)
                     throw new Exception(
@@ -242,11 +247,14 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(SizeNode node)
         {
-            var id = node.Variable.Id.Accept(this);
-            var variableType = node.Variable.Accept(this); // node.Identifier.Accept(this);
+            var id = node.LValue.Id.Accept(this);
+            var variableType = node.LValue.Accept(this); // node.Identifier.Accept(this);
+            var variable = (Variable) GetVariable(id);
 
-            if (variableType != PrimitiveType.Array)
+            if (variable.PrimitiveType != PrimitiveType.Array)
                 throw new Exception($"syntax error: tried to get size from non-array {id}");
+            if (node.LValue is ArrayDereferenceNode) 
+                throw new Exception($"syntax error: tried to get size from a non-array element of array {id}");
 
             return PrimitiveType.Integer;
         }
@@ -352,7 +360,7 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(ArrayTypeNode node)
         {
-            return node.PrimitiveType; // TODO ? return subtype instead?
+            return node.SubType; // TODO ? return subtype instead?
         }
 
         public override dynamic Visit(ReturnStatementNode node)
@@ -388,7 +396,7 @@ namespace ScopeAnalyze
             foreach (var v in node.Variables)
             {
                 v.Accept(this);
-                if (!(v is VariableNode))
+                if (!(v is LValueNode))
                     throw new Exception($"read statement must have a variable as a parameter, got {v}");
             }
 
@@ -427,11 +435,11 @@ namespace ScopeAnalyze
         public override dynamic Visit(VariableNode node)
         {
             var id = node.Id.Accept(this);
-            var index = node.IndexExpression.Accept(this);
+            // var index = node.IndexExpression.Accept(this);
             var variable = (Variable) GetVariable(id);
 
             if (variable == null) throw new Exception($"variable {id} not defined");
-            if (index != null)
+            /*if (index != null)
             {
                 if (variable.PrimitiveType != PrimitiveType.Array) throw new Exception($"can't index a non-array {id}");
 
@@ -441,7 +449,7 @@ namespace ScopeAnalyze
                 };
                 return variable.SubType;
             }
-
+            */
             if (variable.PrimitiveType == PrimitiveType.Array)
             {
                 node.Type = new ArrayTypeNode
@@ -449,7 +457,7 @@ namespace ScopeAnalyze
                     PrimitiveType = PrimitiveType.Array,
                     SubType = variable.SubType
                 };
-                return variable.PrimitiveType;
+                return variable.SubType;
             }
 
             node.Type = new SimpleTypeNode
@@ -460,9 +468,61 @@ namespace ScopeAnalyze
             return variable.PrimitiveType;
         }
 
+        public override dynamic Visit(ArrayDereferenceNode node)
+        {
+            // node.LValue.Accept(this);
+            var lValueType = node.LValue.Accept(this);
+            var expression = node.Expression.Accept(this);
+
+            if (expression == null)
+            {
+                node.Type = new ArrayTypeNode
+                {
+                    PrimitiveType = PrimitiveType.Array,
+                    SubType = ((ArrayTypeNode) node.LValue.Type).SubType
+                };
+                return PrimitiveType.Array;
+            }
+
+            node.Type = new SimpleTypeNode
+            {
+                PrimitiveType = lValueType
+            };
+
+            return lValueType;
+        }
+
+        public override dynamic Visit(ValueOfNode node)
+        {
+            var lValue = node.LValue.Accept(this);
+            node.Type = node.LValue.Type;
+            
+            return lValue;
+        }
+
         public override dynamic Visit(ErrorNode node)
         {
             throw new NotImplementedException();
+        }
+
+        public override dynamic Visit(IntegerValueNode node)
+        {
+            return PrimitiveType.Integer;
+        }
+
+        public override dynamic Visit(RealValueNode node)
+        {
+            return PrimitiveType.Real;
+        }
+
+        public override dynamic Visit(StringValueNode node)
+        {
+            return PrimitiveType.String;
+        }
+
+        public override dynamic Visit(BooleanValueNode node)
+        {
+            return PrimitiveType.Boolean;
         }
     }
 }

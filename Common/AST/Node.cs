@@ -11,7 +11,6 @@ namespace Common.AST
     {
         public virtual string Name => "Node";
 
-        // public dynamic Value { get; set; }
         public Token Token { get; set; }
         public TypeNode Type { get; set; }
         public Scope Scope { get; set; }
@@ -121,11 +120,12 @@ namespace Common.AST
         public IVariable Variable { get; set; } 
     }
 
-    public class AssignmentNode : IdNode
+    public class AssignmentNode : Node
     {
         public override string Name => "Assignment";
 
-        public Node IndexExpression { get; set; } = new NoOpNode();
+        public LValueNode LValue { get; set; }
+        // public Node IndexExpression { get; set; } = new NoOpNode();
         public Node Expression { get; set; }
 
         public override dynamic Accept(Visitor visitor)
@@ -135,14 +135,16 @@ namespace Common.AST
 
         public override string ToString()
         {
-            return $"{Name} {Id}{(IndexExpression is NoOpNode ? "" : $"[{IndexExpression}]")} {Expression}";
+            // {(IndexExpression is NoOpNode ? "" : $"[{IndexExpression}]"
+            return $"{Name} {LValue} {Expression}";
         }
 
         public override string AST(int depth = 0)
         {
             return $"{Spaces(depth)}[{Name}\n" +
                    (Type != null ? $"{Type.AST(depth + 1)}" : "") +
-                   $"{Id.AST(depth + 1)}{Expression.AST(depth + 1)}{Spaces(depth)}]\n";
+                   //$"{Id.AST(depth + 1)}{Expression.AST(depth + 1)}{Spaces(depth)}]\n";
+                   $"{LValue.AST(depth + 1)}{Expression.AST(depth + 1)}{Spaces(depth)}]\n";
         }
     }
 
@@ -177,12 +179,17 @@ namespace Common.AST
         }
     }
 
-    public class VariableNode : IdNode
+    public abstract class LValueNode : IdNode
+    {
+        public new Variable Variable { get; set; }
+    }
+    
+    public class VariableNode : LValueNode // IdNode
     {
         public override string Name => "Variable";
 
-        public Node IndexExpression { get; set; } = new NoOpNode();
-        public VariableNode ReferenceNode { get; set; }
+        // public Node IndexExpression { get; set; } = new NoOpNode();
+        // public VariableNode ReferenceNode { get; set; }
 
         public override dynamic Accept(Visitor visitor)
         {
@@ -191,20 +198,69 @@ namespace Common.AST
 
         public override string ToString()
         {
-            return $"{Name} {Id}{(IndexExpression is NoOpNode ? "" : $"[{IndexExpression}]")}";
+            return $"{Name} {Id}";
         }
 
         public override string AST(int depth = 0)
         {
             return $"{Spaces(depth)}[{Name}\n" +
                    $"{Id.AST(depth + 1)}" +
-                   $"{IndexExpression.AST(depth + 1)}" +
-                   //$"{(IndexExpression is NoOpNode ? "" : $"\n{IndexExpression.AST(depth + 2)}{Spaces(depth + 1)}")}" +
                    (Type != null ? $"{Type.AST(depth + 1)}" : "") +
                    $"{Spaces(depth)}]\n";
         }
     }
 
+    public class ArrayDereferenceNode : LValueNode
+    {
+        public override string Name => "ArrayDereference";
+
+        public LValueNode LValue { get; set; }
+        public Node Expression { get; set; }
+
+        public override dynamic Accept(Visitor visitor)
+        {
+            return visitor.Visit(this);
+        }
+
+        public override string ToString()
+        {
+            return $"{Name} {LValue}[{Expression}]";
+        }
+        
+        public override string AST(int depth = 0)
+        {
+            return $"{Spaces(depth)}[{Name}\n" +
+                   $"{LValue.AST(depth + 1)}" +
+                   $"{Expression.AST(depth + 1)}" + 
+                   (Type != null ? $"{Type.AST(depth + 1)}" : "") +
+                   $"{Spaces(depth)}]\n";
+        }
+        
+    }
+
+    public class ValueOfNode : Node
+    {
+        public override string Name => "ValueOf";
+        
+        public LValueNode LValue { get; set; }
+        
+        public override dynamic Accept(Visitor visitor)
+        {
+            return visitor.Visit(this);
+        }
+        
+        public override string ToString()
+        {
+            return $"{Name} {LValue}";
+        }
+        
+        public override string AST(int depth = 0)
+        {
+            return $"{Spaces(depth)}[{Name}\n" +
+                   $"{LValue.AST(depth + 1)}" +
+                   $"{Spaces(depth)}]\n";
+        }
+    }
     public class BinaryOpNode : BranchNode
     {
         public override string Name => "BinaryOp";
@@ -278,7 +334,7 @@ namespace Common.AST
     {
         public override string Name => "Size";
 
-        public VariableNode Variable { get; set; }
+        public LValueNode LValue { get; set; }
 
         public override dynamic Accept(Visitor visitor)
         {
@@ -287,13 +343,13 @@ namespace Common.AST
 
         public override string ToString()
         {
-            return $"{Name} {Variable}";
+            return $"{Name} {LValue}";
         }
 
         public override string AST(int depth = 0)
         {
             return $"{Spaces(depth)}[{Name}\n" +
-                   $"{Variable.AST(depth + 1)}{Spaces(depth)}]\n";
+                   $"{LValue.AST(depth + 1)}{Spaces(depth)}]\n";
         }
     }
 
@@ -322,6 +378,70 @@ namespace Common.AST
         }
     }
 
+    public abstract class ValueNode : Node
+    {
+        public dynamic Value { get; set; }
+        public override string AST(int depth = 0)
+        {
+            return $"{Spaces(depth)}[{Name}\n" +
+                   (Type != null ? $"{Type.AST(depth + 1)}" : "") +
+                   $"{Spaces(depth + 1)}[{Value}]\n" +
+                   $"{Spaces(depth)}]\n";
+        }
+   }
+
+    public abstract class NumberValueNode : ValueNode
+    {
+    }
+    
+    public class IntegerValueNode : NumberValueNode
+    {
+        public override string Name => "IntegerValue";
+
+        public override dynamic Accept(Visitor visitor)
+        {
+            return visitor.Visit(this);
+        }
+    }
+
+    public class RealValueNode : NumberValueNode
+    {
+        public override string Name => "RealValue";
+
+        public override dynamic Accept(Visitor visitor)
+        {
+            return visitor.Visit(this);
+        }
+    }
+
+    public class StringValueNode : ValueNode
+    {
+        public override string Name => "StringValue";
+
+        public override dynamic Accept(Visitor visitor)
+        {
+            return visitor.Visit(this);
+        }
+        
+        public override string AST(int depth = 0)
+        {
+            return $"{Spaces(depth)}[{Name}\n" +
+                   (Type != null ? $"{Type.AST(depth + 1)}" : "") +
+                   $"{Spaces(depth + 1)}[\"{Value}\"]\n" +
+                   $"{Spaces(depth)}]\n";
+        }
+    }
+
+    public class BooleanValueNode : ValueNode
+    {
+        public override string Name => "BooleanValue";
+
+        public override dynamic Accept(Visitor visitor)
+        {
+            return visitor.Visit(this);
+        }
+    }
+    
     public class LiteralNode : Node
     {
         public override string Name => "Literal";
@@ -404,6 +524,7 @@ namespace Common.AST
     {
         public override string Name => "VarDeclaration";
 
+        // public List<Node> Variables { get; set; }
         public List<Node> Ids { get; set; } // IdentifierNode
 
         public override dynamic Accept(Visitor visitor)
@@ -511,6 +632,7 @@ namespace Common.AST
         {
             return $"{Spaces(depth)}[{Name} {(Reference ? "Ref" : "")}\n" +
                    $"{Id.AST(depth + 1)}" +
+                   $"{Type.AST(depth + 1)}" +
                    $"{Spaces(depth)}]\n";
         }
     }
@@ -571,7 +693,7 @@ namespace Common.AST
 
         public override string ToString()
         {
-            return $"{Name} {Token?.Content ?? ""}[{(Size is NoOpNode ? "" : Size.ToString())}]";
+            return $"{Name} {Token?.Content ?? ""}[{(Size is NoOpNode ? "" : Size.ToString())}] of {SubType}";
         }
 
         public override string AST(int depth = 0)

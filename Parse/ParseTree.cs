@@ -129,7 +129,19 @@ namespace Parse
             Node id = p[0];
             var n = p[1];
 
-            if (n is IdNode) n.Id = id;
+            if (n is AssignmentNode an)
+            {
+                if (an.LValue is ArrayDereferenceNode adn)
+                {
+                    adn.LValue.Id = id;
+                }
+                an.LValue.Id = id;
+            }
+            else
+            {
+                n.Id = id;
+            }
+            // if (n is IdNode) n.Id = id;
 
             return n;
         }
@@ -162,12 +174,13 @@ namespace Parse
                         Arguments = n
                     };
                 default:
-                    return new VariableNode
+                    return VariableOrArrayDeference(p);
+                    /*new VariableNode
                     {
                         Id = id,
                         Token = id.Token,
                         IndexExpression = n ?? NoOpStatement,
-                    };
+                    };*/
             }
         }
 
@@ -184,9 +197,20 @@ namespace Parse
             var index = p.Length < 2 || p[1] == null ? NoOpStatement : p[0];
             var expr = index is NoOpNode ? p[0] : p[1];
 
+            LValueNode lValue = index switch
+            {
+                NoOpNode _ => new VariableNode(),
+                _ => new ArrayDereferenceNode
+                {
+                    LValue = new VariableNode(),
+                    Expression = index
+                }
+            };
+
             return new AssignmentNode
             {
-                IndexExpression = index,
+                LValue = lValue,    
+                // IndexExpression = index,
                 Expression = expr
             };
         }
@@ -220,6 +244,8 @@ namespace Parse
             
             var ids = UnwrapTreeNode(p[0]);
             var type = p[1];
+
+            var variables = new List<Node>();
 
             foreach (var id in ids) id.Type = type;
 
@@ -381,6 +407,15 @@ namespace Parse
             };
         }
 
+        public static Node ValueOf(Node node)
+        {
+            if (!(node is LValueNode lvn)) return node;
+
+            return new ValueOfNode
+            {
+                LValue = lvn
+            };
+        } 
         /**
          * Expects
          *
@@ -419,14 +454,14 @@ namespace Parse
 
             var term = p[0];
 
-            if (p[1] == null) return term;
+            return p[1] == null ? (Node) term : Expr(p);
 
-            return new BinaryOpNode
+            /*return new BinaryOpNode
             {
                 Left = term,
                 Token = p[1],
                 Right = p[2]
-            };
+            };*/
         }
 
         /**
@@ -443,7 +478,7 @@ namespace Parse
 
             return new SizeNode
             {
-                Variable = p[0],
+                LValue = p[0],
                 Token = p[1]
             };
         }
@@ -465,6 +500,12 @@ namespace Parse
             };
         }
 
+        public static Node VariableOrArrayDeference(dynamic[] p)
+        {
+            if (p[0] is ErrorNode) return p[0];
+
+            return p[1] == null ? Variable(p) : ArrayDereference(p);
+        }
         /**
          * Expects
          *
@@ -477,16 +518,37 @@ namespace Parse
             
             // TODO: check if we should always return variable
             IdentifierNode node = p[0];
-            if (p.Length < 2 || p[1] == null) return node;
+            // if (p.Length < 2 || p[1] == null) return node;
 
             return new VariableNode
             {
                 Token = node.Token,
                 Id = node,
-                IndexExpression = p[1] ?? NoOpStatement
+                // IndexExpression = p[1] ?? NoOpStatement
             };
         }
 
+        public static Node ArrayDereference(dynamic[] p)
+        {
+            IdentifierNode node = p[0];
+            var expression = p[1];
+
+            return new ArrayDereferenceNode
+            {
+                Token = expression.Token,
+                LValue = (LValueNode) Variable(p),
+                Expression = expression
+            };
+        }
+
+        private static readonly Dictionary<TokenType, Type> _valueTypes = new Dictionary<TokenType, Type>
+        {
+            [TokenType.IntegerValue] = typeof(IntegerValueNode),
+            [TokenType.RealValue] = typeof(RealValueNode),
+            [TokenType.StringValue] = typeof(StringValueNode),
+            [TokenType.BooleanValue] = typeof(BooleanValueNode)
+        };
+        
         /**
          * Expects
          *
@@ -498,7 +560,32 @@ namespace Parse
             
             var token = (Token) p[0];
 
-            return new LiteralNode
+            dynamic value = token.Type switch
+            {
+                TokenType.IntegerValue => int.Parse(token.Content),
+                TokenType.RealValue => double.Parse(token.Content),
+                TokenType.StringValue => token.Content,
+                TokenType.BooleanValue => token.Content.ToLower() == "true"
+            };
+
+            var node = (ValueNode) Activator.CreateInstance(_valueTypes[token.Type]);
+
+            node.Token = token;
+            node.Type = new SimpleTypeNode
+            {
+                PrimitiveType = token.Type switch
+                {
+                    TokenType.IntegerValue => PrimitiveType.Integer,
+                    TokenType.RealValue => PrimitiveType.Real,
+                    TokenType.StringValue => PrimitiveType.String,
+                    TokenType.BooleanValue => PrimitiveType.Boolean,
+                    _ => PrimitiveType.Void
+                }
+            };
+            node.Value = value;
+
+            return node;
+            /*return new LiteralNode
             {
                 Token = token,
                 Type = new SimpleTypeNode
@@ -512,7 +599,7 @@ namespace Parse
                         _ => PrimitiveType.Void
                     }
                 }
-            };
+            };*/
         }
 
         /**

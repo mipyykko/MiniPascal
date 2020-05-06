@@ -28,6 +28,12 @@ namespace Common.AST
         public abstract dynamic Visit(WriteStatementNode node);
         public abstract dynamic Visit(DeclarationListNode node);
         public abstract dynamic Visit(VariableNode node);
+        public abstract dynamic Visit(ArrayDereferenceNode node);
+        public abstract dynamic Visit(ValueOfNode node);
         public abstract dynamic Visit(ErrorNode node);
+        public abstract dynamic Visit(IntegerValueNode node);
+        public abstract dynamic Visit(RealValueNode node);
+        public abstract dynamic Visit(StringValueNode node);
+        public abstract dynamic Visit(BooleanValueNode node);
     }
 }

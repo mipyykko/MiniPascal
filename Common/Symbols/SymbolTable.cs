@@ -9,6 +9,7 @@ namespace Common.Symbols
     public abstract class IVariable
     {
         public string Name;
+        public Scope Scope;
         public PrimitiveType PrimitiveType;
         public PrimitiveType SubType;
         public Node Node;
@@ -25,6 +26,16 @@ namespace Common.Symbols
         }
     }
 
+    public class Formal : Variable
+    {
+        
+    }
+    
+    public class TemporaryVariable : Variable
+    {
+        
+    }
+    
     public class BuiltinVariable : Variable
     {
         public override string ToString()
