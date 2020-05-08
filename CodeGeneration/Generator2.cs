@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using Common;
 using Common.AST;
 using Common.Symbols;
@@ -9,15 +11,51 @@ namespace CodeGeneration
 {
     public class CodeBlock
     {
-        public int Id;
+        public List<CodeLine> Lines = new List<CodeLine>();
+
+        public CodeBlock()
+        {
+        }
+
+        public CodeBlock(CodeLine c) => Add(c);
+        public CodeBlock(IEnumerable<CodeLine> c) => Add(c);
+        public CodeBlock(CodeBlock c) => Add(c);
+        
+        public void Add(CodeLine c) => Lines.Add(c);
+        public void Add(IEnumerable<CodeLine> c) => Lines.AddRange(c);
+        public void Add(CodeBlock c) => Lines.AddRange(c.Lines);
+        
+        public override string ToString()
+        {
+            return string.Join("\n", Lines);
+        }
+    }
+    
+    public class CodeLine
+    {
+        public int Line;
         public string Code;
-        public List<Block> Next;
+        public string Comment;
+
+        private CodeLine(string code, string comment = "", int line = -1)
+        {
+            Line = line;
+            Code = code;
+            Comment = comment;
+        }
+
+        public static CodeLine Of(string code, string comment = "", int line = -1) => new CodeLine(code, comment, line);
+        
+        public override string ToString()
+        {
+            return $"{Code} # {(Line >= 0 ? $"{Line}: " : "")}{Comment}";
+        }
     }
 
     public class Generator2
     {
         private List<CFG> Cfgs;
-        private List<string> _code = new List<string>();
+        private CodeBlock _code = new CodeBlock();
         private static int _nextTemporary = 0;
         private Stack<Scope> _scopeStack = new Stack<Scope>();
         private Dictionary<Scope, Dictionary<string, IVariable>> _temporaries = new Dictionary<Scope, Dictionary<string, IVariable>>();
@@ -33,8 +71,8 @@ namespace CodeGeneration
             Cfgs = cfgs;
         }
 
-        public void AddCode(string c) => _code.Add(c);
-        public void AddCode(IEnumerable<string> c) => _code.AddRange(c);
+        public void AddCode(CodeLine c) => _code.Add(c);
+        public void AddCode(IEnumerable<CodeLine> c) => _code.Add(c);
         
         public string Generate()
         {
@@ -45,15 +83,15 @@ namespace CodeGeneration
                 var signature = FunctionSignature(function);
                 var body = new List<string>();
                 
-                _code.Add(signature);
+                _code.Add(CodeLine.Of(signature, $"{cfg.Function}"));
 
                 foreach (var block in cfg.Blocks)
                 {
-                    AddCode($"L{block.Index}: ");
+                    _code.Add(CodeLine.Of($"L{block.Index}: "));
                     foreach (var statement in block.Statements)
                     {
                         var c = CreateStatement(statement);
-                        AddCode(c);
+                        _code.Add(c);
                     }
 
                     if (block.Child is BranchBlock bb)
@@ -63,11 +101,11 @@ namespace CodeGeneration
                     }
                     else if (block.Child != null)
                     {
-                        AddCode($"goto L{block.Child.Index};");
+                        AddCode(CodeLine.Of($"goto L{block.Child.Index};"));
                     }
                     else
                     {
-                        AddCode($"return;");
+                        AddCode(CodeLine.Of("return;"));
                     }
                     
                     
@@ -76,10 +114,10 @@ namespace CodeGeneration
                 _scopeStack.Pop();
             }
 
-            return string.Join("\n", _code);
+            return _code.ToString(); //string.Join("\n", _code);
         }
 
-        public string CreateStatement(Node node)
+        public CodeBlock CreateStatement(Node node)
         {
             return node switch
             {
@@ -96,69 +134,132 @@ namespace CodeGeneration
             };
         }
 
-        public string VarDeclarationStatement(VarDeclarationNode node)
+        public CodeBlock VarDeclarationStatement(VarDeclarationNode node)
         {
-            var output = new List<String>();
+            var output = new CodeBlock();
 
             foreach (var id in node.Ids)
             {
                 var temp = NextTemporary;
                 AddTemporary(new Variable{Name = id.Token.Content, Scope = CurrentScope}, temp);
-                output.Add($"{VarSignature(node, temp.Name)};");
+                output.Add(CodeLine.Of($"{VarSignature(node, temp.Name)};", id.Token.Content, id.Token.SourceInfo.LineRange.Line));
             }
 
-            return string.Join("\n", output);
+            return output;
         }
 
-        public string AssignmentStatement(AssignmentNode node)
+        public dynamic GetValue(ValueNode node)
         {
+            return node.Type.PrimitiveType switch
+            {
+                PrimitiveType.String => $"\"{node.Value}\"",
+                PrimitiveType.Boolean => node.Value == true ? 1 : 0,
+                _ => node.Value
+            };
+        }
+        
+        public CodeBlock AssignmentStatement(AssignmentNode node)
+        {
+            var output = new CodeBlock();
             var (temp, code) = StoreOrLoad(node.LValue);
 
             if (node.Expression is ValueNode vn)
             {
-                return $"{code}\n{temp.Name} = {vn.Value}";
+                output.Add(CodeLine.Of($"{code}\n{temp.Name} = {GetValue(vn)}", node.LValue.Id.Token.Content));
+            }
+            else
+            {
+
+                var (temp2, code2) = ComputeTemporary(node.Expression);
+
+                // TODO: del old temp?
+
+                output.Add(code);
+                output.Add(code2);
+                output.Add(CodeLine.Of($"{temp.Name} = {temp2.Name}"));
             }
 
-            var (temp2, code2) = ComputeTemporary(node.Expression);
+            return output;
+        }
+
+        public CodeBlock CallStatement(CallNode node)
+        {
+            var code = new CodeBlock();
+            var args = new List<IVariable>();
+                    
+            foreach (var arg in node.Arguments)
+            {
+                var (argTemp, argCode) = ComputeTemporary(arg);
+                code.Add(argCode);
+                args.Add(argTemp);
+            }
+
+            var argStrings = new List<string>();
+
+            for (var i = 0; i < node.Arguments.Count; i++)
+            {
+                var reference = ((ParameterNode) node.Function.Parameters[i]).Reference;
+                argStrings.Add($"{(reference ? "&" : "")}{args[i].Name}");
+            }
+
+            var argString = string.Join(", ", argStrings);
+
+            code.Add(CodeLine.Of($"{node.Id.Token.Content}({argString})"));
+            return code; // TODO
+        }
+
+        public CodeBlock IfStatement(IfNode node)
+        {
+            return new CodeBlock();
+        }
+
+        public CodeBlock WhileStatement(WhileNode node)
+        {
+            return new CodeBlock();
+        }
+
+        private string PrintfType(PrimitiveType type) => type switch
+        {
+            PrimitiveType.Integer => "%d",
+            PrimitiveType.Real => "%g",
+            PrimitiveType.String => "%s",
+            PrimitiveType.Boolean => "%d",
+        };
+        public CodeBlock WriteStatement(WriteStatementNode node)
+        {
+            var args = new List<IVariable>();
+            var printfTypes = new List<string>();
+            var result = new CodeBlock();
+
+            foreach (var arg in node.Arguments)
+            {
+                var (t, code) = StoreOrLoad(arg);
+                args.Add(t);
+                printfTypes.Add(PrintfType(arg.Type.PrimitiveType));
+                result.Add(code);
+            }
+
+            var printString = string.Join(" ", printfTypes);
+            var argsString = string.Join(", ", args.Select(a => a.Name));
             
-            // TODO: del old temp?
+            result.Add(CodeLine.Of($"printf(\"{printString}\\n\", {argsString});"));
 
-            return $"{code}\n{code2}\n{temp.Name} = {temp2.Name}";
+            return result;
         }
 
-        public string CallStatement(CallNode node)
+        public CodeBlock ReadStatement(ReadStatementNode node)
         {
-            return "";
+            return new CodeBlock();
         }
 
-        public string IfStatement(IfNode node)
+        public CodeBlock AssertStatement(AssertStatementNode node)
         {
-            return "";
+            return new CodeBlock();
         }
 
-        public string WhileStatement(WhileNode node)
+        public CodeBlock ReturnStatement(ReturnStatementNode node)
         {
-            return "";
-        }
-        
-        public string WriteStatement(WriteStatementNode node)
-        {
-            return "";
-        }
-
-        public string ReadStatement(ReadStatementNode node)
-        {
-            return "";
-        }
-
-        public string AssertStatement(AssertStatementNode node)
-        {
-            return "";
-        }
-
-        public string ReturnStatement(ReturnStatementNode node)
-        {
-            return "";
+            return new CodeBlock();
         }
 
         public void AddTemporary(IVariable variable, IVariable temporary)
@@ -178,14 +279,15 @@ namespace CodeGeneration
             return _temporaries[CurrentScope].TryGetValueOrDefault(variable.Name);
         }
 
-        public (IVariable, string) ComputeTemporary(Node node)
+        public (IVariable, CodeBlock) ComputeTemporary(Node node)
         {
             switch (node)
             {
+                case ValueOfNode vof: return ComputeTemporary(vof.LValue); // TODO
                 case ValueNode n:
                 {
                     var t = NextTemporary;
-                    return (t, $"{t.Name} = {n.Value};"); // TODO
+                    return (t, new CodeBlock(CodeLine.Of($"{t.Name} = {GetValue(n)};"))); // TODO
                 }
                 case BinaryOpNode n:
                 {
@@ -200,54 +302,81 @@ namespace CodeGeneration
                             var existing = GetTemporary(vn.Variable); // TODO
                             if (existing != null)
                             {
-                                return (existing, existing.Name);
+                                return (existing, new CodeBlock());
                             }
 
                             var t = NextTemporary;
                             var (res, code) = StoreOrLoad(vn);
                             AddTemporary(vn.Variable, t);
-                            return (t, $"{code}{t.Name} = {res.Name}");
+                            code.Add(CodeLine.Of($"{t.Name} = {res.Name}"));
+                            return (t, code);
                         }
                         case ArrayDereferenceNode adn:
                         {
                             var t = NextTemporary;
                             var (res, code) = StoreOrLoad(adn);
-                            var (res2, code2) = StoreOrLoad(adn.Expression);
-                            return (t, $"{code}{code2} {t.Name}[{res2.Name}] = {res.Name}");
+                            code.Add(CodeLine.Of($"{t.Name} = {res.Name}"));
+                            //var (res2, code2) = StoreOrLoad(adn.Expression);
+                            return (t, code);
                         }
                     }
                     break;
                 }
                 case CallNode n:
                 {
-                    return (null, ""); // TODO
+                    var code = new CodeBlock();
+                    var args = new List<IVariable>();
+                    
+                    foreach (var arg in n.Arguments)
+                    {
+                        var (argTemp, argCode) = ComputeTemporary(arg);
+                        code.Add(argCode);
+                        args.Add(argTemp);
+                    }
+
+                    var argString = string.Join(", ", args.Select(a => a.Name));
+
+                    var t = NextTemporary;
+
+                    code.Add(CodeLine.Of($"{t.Name} = {n.Id.Token.Content}({argString})"));
+                    return (t, code); // TODO
                 }
             }
 
-            return (null, "");
+            return (null, new CodeBlock());
         }
 
-        public (IVariable, string) StoreOrLoad(Node node)
+        public (IVariable, CodeBlock) StoreOrLoad(Node node)
         {
+            var output = new CodeBlock();
+            if (node is ValueOfNode vof) return StoreOrLoad(vof.LValue);
+            
             if (node is ArrayDereferenceNode adn)
             {
                 var (temp, code) = StoreOrLoad(adn.LValue);
                 var (tempIdx, code2) = ComputeTemporary(adn.Expression);
 
-                return (temp, $"{code2}\n{code}[{tempIdx.Name}]");
+                output.Add(code); // TODO ?
+                return (temp, output);
             }
 
             if (node is ValueNode vn)
             {
                 var t = NextTemporary;
-                return (t, $"{_types[vn.Type.PrimitiveType]} {t.Name} = {vn.Value}");
+                output.Add(CodeLine.Of($"{_types[vn.Type.PrimitiveType]} {t.Name} = {GetValue(vn)}"));
+                return (t, output);
+            }
+
+            if (node is CallNode cn)
+            {
+                return ComputeTemporary(cn);
             }
             // TODO: CallNode
 
             var variable = ((LValueNode) node).Variable;
             var tempVar = GetTemporary(variable);
             
-            return (tempVar, tempVar.Name);
+            return (tempVar, output);
         }
 
         public List<dynamic> UnrollBinaryNode(BinaryOpNode node)
@@ -262,62 +391,61 @@ namespace CodeGeneration
             return result;
         }
         
-        public (IVariable, string) CreateTemporaryFromExpression(BinaryOpNode node)
+        public (IVariable, CodeBlock) CreateTemporaryFromExpression(BinaryOpNode node)
         {
             IVariable temp = null, prevTemp = null;
             var _node = node;
             var first = true;
-            
-            do
+            var output = new CodeBlock();
+
+            while (true)
             {
+                if (_node.Right is BinaryOpNode bop)
+                {
+                    var (bopTemp, bopCode) = CreateTemporaryFromExpression(bop);
+                    output.Add(bopCode);
+                }
+
                 if (_node.Left is LValueNode)
                 {
                     var (_temp, code) = ComputeTemporary(_node.Left);
-                    AddCode(code);
+                    output.Add(code);
                     temp = _temp;
                 }
 
                 if (_node.Left is ValueNode vn)
                 {
                     var t = NextTemporary;
-                    AddCode($"{VarSignature(vn, t.Name)} = {vn.Value}");
+                    output.Add(CodeLine.Of($"{VarSignature(vn, t.Name)} = {vn.Value}"));
                     temp = t;
                 }
 
                 if (_node.Right is LValueNode)
                 {
                     var (_temp, code) = ComputeTemporary(_node.Right);
-                    AddCode(code);
-                    AddCode($"{temp.Name}{_node.Token.Content}{_temp.Name}");
-                    temp = _temp;
+                    output.Add(code);
+                    output.Add(CodeLine.Of($"{temp.Name} = {temp.Name} {_node.Token.Content} {_temp.Name}"));
+
+                    return (temp, output);
                 }
 
                 if (_node.Right is ValueNode vn2)
                 {
-                    AddCode($"{temp.Name} = {temp.Name} {_node.Token.Content} {vn2.Value}");
+                    //AddCode();
+                    output.Add(CodeLine.Of($"{temp.Name} = {temp.Name} {_node.Token.Content} {vn2.Value}"));
+                    return (temp, output);
                 }
 
-                if (_node.Right is BinaryOpNode bop)
-                {
-                    var (nextTemp, code) = CreateTemporaryFromExpression(bop);
-                    temp = nextTemp;
-                }
-                if (prevTemp == null)
-                {
-                    prevTemp = temp;
-                }
-                else
-                {
-                    if (_node.Right is NoOpNode)
-                    {
-                        var result = NextTemporary;
-                        
-                    }
-                }
-            } while (false);
+                // TODO: unarynode and what have you
 
-            return (prevTemp, "");
+                prevTemp = temp;
+
+                if (_node.Right is NoOpNode) break;
+            }
+
+            return (prevTemp, output);
         }
+        
         public string VarSignature(Node node, string name)
         {
             if (node.Type is SimpleTypeNode st)
@@ -373,12 +501,13 @@ namespace CodeGeneration
             }
 
             var parameters = new List<string>();
-
-            foreach (ParameterNode n in ((FunctionOrProcedureDeclarationNode) variable.Node).Parameters)
+            var nodeParameters = ((FunctionOrProcedureDeclarationNode) variable.Node).Parameters; 
+            for (var i = 0; i < nodeParameters.Count; i++)
             {
+                var par = (ParameterNode) nodeParameters[i];
                 var temp = NextTemporary;
-                AddTemporary(n.Variable, temp);
-                parameters.Add($"{VarSignature(n, temp.Name)}"); // TODO: reference?
+                AddTemporary(par.Variable, temp);
+                parameters.Add(VarSignature(par, $"{(par.Reference ? "*": "")}{temp.Name}")); // TODO: reference?
             }
             var code = $"{VarSignature(variable.Node, name)} ({string.Join(", ", parameters)})";
 

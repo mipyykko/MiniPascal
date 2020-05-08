@@ -43,7 +43,6 @@ function Sum (data : array [] of integer) : integer;
 begin
 var i, sum : integer;
  i := 0; sum := 0;
-data[0] := 2;
 while i < data.size do begin
  sum := sum + data [i]; i := i + 1;
 end;

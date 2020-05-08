@@ -49,6 +49,8 @@ namespace ScopeAnalyze
             var fn = (FunctionVariable) GetFunctionOrProcedure(id);
             var fnNode = (FunctionDeclarationNode) fn.Node;
 
+            node.Function = fnNode;
+            
             for (var i = 0; i < node.Arguments.Count; i++)
             {
                 var parameterNode = (ParameterNode) fnNode.Parameters[i];
