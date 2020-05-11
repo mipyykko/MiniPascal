@@ -29,7 +29,8 @@ namespace Common
         public char Current => Pos < End ? text[Pos] : '\0';
         public char Peek => Pos + 1 < End ? text[Pos + 1] : '\0';
         private string NextTwo => $"{Current}{Peek}";
-
+        public string GetLine(int i) => Lines[i];
+        
         public string Range(int start, int len)
         {
             return text.Substring(start, len);

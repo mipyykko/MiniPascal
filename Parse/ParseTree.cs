@@ -385,6 +385,26 @@ namespace Parse
             };
         }
 
+        private static OperatorType OperatorTypeFromToken(string op) =>
+            op.ToLower() switch
+            {
+                "+" => OperatorType.Add,
+                "-" => OperatorType.Sub,
+                "*" => OperatorType.Mul,
+                "/" => OperatorType.Div,
+                "%" => OperatorType.Mod,
+                "and" => OperatorType.And,
+                "or" => OperatorType.Or,
+                "not" => OperatorType.Not,
+                "=" => OperatorType.Eq,
+                "<>" => OperatorType.Neq,
+                "<" => OperatorType.Lt,
+                "<=" => OperatorType.Leq,
+                ">=" => OperatorType.Geq,
+                ">" => OperatorType.Gt,
+                _ => throw new Exception($"unknown operator {op}")
+            };
+
         /**
          * Expects
          *
@@ -401,6 +421,7 @@ namespace Parse
             return new BinaryOpNode
             {
                 Left = p[0],
+                Op = OperatorTypeFromToken(p[1].Content),
                 Token = p[1], // TODO: op?
                 Right = p[2],
                 Type = new SimpleTypeNode() // TODO (?)
@@ -431,6 +452,7 @@ namespace Parse
             return new UnaryOpNode
             {
                 Token = p[0],
+                Op = OperatorTypeFromToken(p[0].Content),
                 Expression = p[1],
                 Type = new SimpleTypeNode() // TODO ?
             };
@@ -496,6 +518,7 @@ namespace Parse
             return new UnaryOpNode
             {
                 Token = p[0],
+                Op = OperatorTypeFromToken(p[0].Content),
                 Expression = p[1]
             };
         }

@@ -112,6 +112,8 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(SizeNode node)
         {
+            node.LValue.Accept(this);
+
             return null;
         }
 

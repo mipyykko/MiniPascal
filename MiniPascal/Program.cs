@@ -34,9 +34,17 @@ still comment
 begin
 var i : integer;
  i := 0;
-while i <= 19 do writeln (F (i));
+while i <= 19 do 
+begin
+ writeln (F (i));
+ i := i + 1
+end;
  i := 0;
-while i <= 19 do writeln (M (i));
+while i <= 19 do 
+begin
+writeln (M (i));
+i := i + 1
+end;
 end. ";
             var program2 = @"program SwapAndSumThem;
 function Sum (data : array [] of integer) : integer;
@@ -75,7 +83,62 @@ if (1 < 2) then
    writeln(""noh"");
 end.";
 
-            Context.Source = Text.Of(program2);
+            var program4 = @"program GCD;
+begin
+var i, j : integer;
+ read (i, j);
+while i <> j do
+  if (i > j) then 
+    i := i - j
+  else 
+    j := j - i;
+ writeln (i);
+end.";
+
+            var program5 = @"program StringArray;
+
+begin
+  var A : array[3] of string;
+  var i : integer;
+  var c : string;
+
+  while i < A.size do
+  begin
+    writeln(""string"", i);
+    read(A[i]);
+    i := i + 1;
+  end;
+  
+  i := 0;
+
+  while i < A.size do
+  begin
+    writeln(A[i]);
+    i := i + 1
+  end;
+end.";
+
+            var program6 = @"program Recursive;
+
+procedure A(depth : integer);
+begin
+  writeln(""A"", depth);
+  A(depth + 2);
+  if depth > 0 then 
+    B(depth - 1);
+end;
+
+procedure B(depth : integer);
+begin
+  writeln(""B"", depth);
+  if depth > 0 then A(depth - 1);
+end;
+
+begin
+  A(50);
+end.
+";
+            Context.Source = Text.Of(program6);
 
             var s = new Scanner();
             var p = new Parser(s);
@@ -83,8 +146,6 @@ end.";
             var v = (ProgramNode) p.BuildTree();
             
             Console.WriteLine(v.AST());
-            var analyzer = new ScopeAnalyzer();
-
 
             /*
              * TODO:

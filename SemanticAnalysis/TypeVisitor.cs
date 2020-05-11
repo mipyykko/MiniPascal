@@ -80,7 +80,7 @@ namespace ScopeAnalyze
         {
             switch (node)
             {
-                case ValueOfNode vofNode: return GetArgumentInfo(vofNode.LValue);
+                case ValueOfNode vofNode: return GetArgumentInfo(vofNode.LValue); // TODO: actually get this working
                 case VariableNode varNode:
                 {
                     var argId = varNode.Id.Accept(this);
@@ -102,9 +102,21 @@ namespace ScopeAnalyze
                 {
                     return (valNode.Type.PrimitiveType, PrimitiveType.Void, -1);
                 }
+                case BinaryOpNode binOpNode:
+                {
+                    return (binOpNode.Type.PrimitiveType, PrimitiveType.Void, -1);
+                }
+                case UnaryOpNode unaryOpNode:
+                {
+                    return (unaryOpNode.Type.PrimitiveType, PrimitiveType.Void, -1);
+                }
+                case CallNode callNode:
+                {
+                    return (callNode.Type.PrimitiveType, PrimitiveType.Void, -1);
+                }
             }
             
-            throw new Exception();
+            throw new Exception($"got unknown argument {node}");
         }
         
         public override dynamic Visit(CallNode node)
@@ -180,25 +192,33 @@ namespace ScopeAnalyze
             return returnType;
         }
 
-        private static readonly string[] RelationalOperators =
+        private static readonly OperatorType[] RelationalOperators =
         {
-            "=", "<>", "<", "<=", ">=", ">"
+            OperatorType.Eq,
+            OperatorType.Neq,
+            OperatorType.Lt,
+            OperatorType.Leq,
+            OperatorType.Geq,
+            OperatorType.Gt
         };
 
-        private static readonly string[] ArithmeticOperators =
+        private static readonly OperatorType[] ArithmeticOperators =
         {
-            "+", "-", "*", "/"
+            OperatorType.Add,
+            OperatorType.Sub,
+            OperatorType.Mul,
+            OperatorType.Div
         };
 
-        private static readonly Dictionary<PrimitiveType, string[]> PermittedOperations =
-            new Dictionary<PrimitiveType, string[]>
+        private static readonly Dictionary<PrimitiveType, OperatorType[]> PermittedOperations =
+            new Dictionary<PrimitiveType, OperatorType[]>
             {
-                [PrimitiveType.Integer] = ArithmeticOperators.Concat(RelationalOperators).Concat(new[] {"%"}).ToArray(),
+                [PrimitiveType.Integer] = ArithmeticOperators.Concat(RelationalOperators).Concat(new[] {OperatorType.Mod}).ToArray(),
                 [PrimitiveType.Real] = ArithmeticOperators.Concat(RelationalOperators).ToArray(),
-                [PrimitiveType.String] = RelationalOperators.Concat(new[] {"+"}).ToArray(),
-                [PrimitiveType.Boolean] = RelationalOperators.Concat(new[] {"and", "or"}).ToArray(),
-                [PrimitiveType.Array] = new string[] { },
-                [PrimitiveType.Void] = new string[] { }
+                [PrimitiveType.String] = RelationalOperators.Concat(new[] {OperatorType.Add}).ToArray(),
+                [PrimitiveType.Boolean] = RelationalOperators.Concat(new[] {OperatorType.And, OperatorType.Or}).ToArray(),
+                [PrimitiveType.Array] = new OperatorType[] { },
+                [PrimitiveType.Void] = new OperatorType[] { }
             };
 
         public override dynamic Visit(BinaryOpNode node)
@@ -206,14 +226,14 @@ namespace ScopeAnalyze
             var left = node.Left.Accept(this);
             var right = node.Right.Accept(this);
 
-            var op = node.Token.Content;
+            var op = node.Op;
 
-            var ops = (string[]) PermittedOperations[left];
+            var ops = (OperatorType[]) PermittedOperations[left];
 
-            if (left != right || left == right && !ops.Includes(op))
+            if (left != right || left == right && !ops.Contains(op))
                 throw new Exception($"type error: can't perform {left} {op} {right}");
 
-            var type = RelationalOperators.Includes(op)
+            var type = RelationalOperators.Contains(op)
                 ? PrimitiveType.Boolean
                 : left;
 
@@ -228,13 +248,17 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(UnaryOpNode node)
         {
-            var op = node.Token.Content;
+            var op = node.Op;
             var type = node.Expression.Accept(this);
 
-            if (type != PrimitiveType.Boolean && op == "not" ||
-                "+-".Contains(op) && type != PrimitiveType.Integer && type != PrimitiveType.Real)
+            if (type != PrimitiveType.Boolean && op == OperatorType.Not ||
+                new[] { OperatorType.Add, OperatorType.Sub }.Contains(op) && type != PrimitiveType.Integer && type != PrimitiveType.Real)
                 throw new Exception($"invalid op {op} on {type}");
 
+            node.Type = new SimpleTypeNode
+            {
+                PrimitiveType = type
+            };
             return type;
         }
 

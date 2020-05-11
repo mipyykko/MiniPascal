@@ -261,8 +261,17 @@ namespace Common.AST
                    $"{Spaces(depth)}]\n";
         }
     }
-    public class BinaryOpNode : BranchNode
+
+    public abstract class OpNode : Node
     {
+        public OperatorType Op { get; set; }
+    }
+    
+    public class BinaryOpNode : OpNode
+    {
+        public Node Left { get; set; }
+        public Node Right { get; set; }        
+
         public override string Name => "BinaryOp";
 
         public override dynamic Accept(Visitor visitor)
@@ -272,18 +281,19 @@ namespace Common.AST
 
         public override string ToString()
         {
-            return $"{Name} {Left}{Token.Content}{Right}";
+            return $"{Name} {Left}{Op}{Right}";
         }
 
         public override string AST(int depth = 0)
         {
-            return $"{Spaces(depth)}[{Name} {Type}\n" +
-                   $"{Spaces(depth + 1)}[{Token.Content}]\n" +
+            return $"{Spaces(depth)}[{Name}\n" +
+                   $"{Type.AST(depth + 1)}" +
+                   $"{Spaces(depth + 1)}[{Op}]\n" +
                    $"{Left.AST(depth + 1)}{Right.AST(depth + 1)}{Spaces(depth)}]\n";
         }
     }
 
-    public class UnaryOpNode : Node
+    public class UnaryOpNode : OpNode
     {
         public override string Name => "UnaryOp";
 
@@ -296,13 +306,13 @@ namespace Common.AST
 
         public override string ToString()
         {
-            return $"{Name} {Token.Content}{Expression}";
+            return $"{Name} {Op}{Expression}";
         }
 
         public override string AST(int depth = 0)
         {
             return $"{Spaces(depth)}[{Name}\n" +
-                   $"{Spaces(depth + 1)}[{Token.Content}]\n" +
+                   $"{Spaces(depth + 1)}[{Op}]\n" +
                    $"{Expression.AST(depth + 1)}{Spaces(depth)}]\n";
         }
     }

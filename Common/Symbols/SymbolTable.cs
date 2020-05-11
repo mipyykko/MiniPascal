@@ -13,19 +13,21 @@ namespace Common.Symbols
         public PrimitiveType PrimitiveType;
         public PrimitiveType SubType;
         public Node Node;
+
+        public virtual string Representation => Name;
     }
 
     public class Variable : IVariable
     {
         public Node ReferenceNode;
         public int Size = -1;
-        
+
         public override string ToString()
         {
             return $"Variable {Name}: {(PrimitiveType == PrimitiveType.Array ? $"{PrimitiveType} of {SubType}" : PrimitiveType.ToString())}";
         }
     }
-
+    
     public class Formal : Variable
     {
         
@@ -33,9 +35,18 @@ namespace Common.Symbols
     
     public class TemporaryVariable : Variable
     {
-        
+        public bool Reference = false;
+
+        public override string Representation => $"{(Reference ? "*" : "")}{Name}";
     }
-    
+
+    public class TemporaryArrayDereference : TemporaryVariable
+    {
+        public string Index = "";
+
+        public override string Representation => $"{Name}[{Index}]";
+    }
+
     public class BuiltinVariable : Variable
     {
         public override string ToString()

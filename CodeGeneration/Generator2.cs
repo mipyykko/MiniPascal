@@ -11,6 +11,8 @@ namespace CodeGeneration
 {
     public class CodeBlock
     {
+        public static int MaxLineLength = 0;
+        
         public List<CodeLine> Lines = new List<CodeLine>();
 
         public CodeBlock()
@@ -21,13 +23,22 @@ namespace CodeGeneration
         public CodeBlock(IEnumerable<CodeLine> c) => Add(c);
         public CodeBlock(CodeBlock c) => Add(c);
         
-        public void Add(CodeLine c) => Lines.Add(c);
-        public void Add(IEnumerable<CodeLine> c) => Lines.AddRange(c);
-        public void Add(CodeBlock c) => Lines.AddRange(c.Lines);
-        
+        public void Add(CodeLine c)
+        {
+            MaxLineLength = Math.Max(MaxLineLength, c.Code.Length);
+            Lines.Add(c);
+        }
+
+        public void Add(IEnumerable<CodeLine> c)
+        {
+            foreach (var l in c) Add(l);
+        }
+
+        public void Add(CodeBlock c) => Add(c.Lines);
+
         public override string ToString()
         {
-            return string.Join("\n", Lines);
+            return string.Join("\n", Lines.Select(l => l.GetString(MaxLineLength)));
         }
     }
     
@@ -45,6 +56,17 @@ namespace CodeGeneration
         }
 
         public static CodeLine Of(string code, string comment = "", int line = -1) => new CodeLine(code, comment, line);
+
+        public string GetString(int lineLength = 0)
+        {
+            var sb = new StringBuilder(Code.PadRight(lineLength));
+            if (Line >= 0 || Comment.Length > 0)
+            {
+                sb.Append($" // {(Line >= 0 ? $"{Line}: " : "")}{Comment}");
+            }
+            
+            return sb.ToString();
+        }
         
         public override string ToString()
         {
@@ -61,11 +83,11 @@ namespace CodeGeneration
         private Dictionary<Scope, Dictionary<string, IVariable>> _temporaries = new Dictionary<Scope, Dictionary<string, IVariable>>();
         
         private Scope CurrentScope => _scopeStack.Count > 0 ? _scopeStack.Peek() : null;
-        public IVariable NextTemporary => new TemporaryVariable
+        public TemporaryVariable NextTemporary => new TemporaryVariable
         {
             Name = $"v{_nextTemporary++}",
         };
-        
+
         public Generator2(List<CFG> cfgs)
         {
             Cfgs = cfgs;
@@ -73,6 +95,7 @@ namespace CodeGeneration
 
         public void AddCode(CodeLine c) => _code.Add(c);
         public void AddCode(IEnumerable<CodeLine> c) => _code.Add(c);
+        public static CodeLine EmptyLine => CodeLine.Of("");
         
         public string Generate()
         {
@@ -83,11 +106,11 @@ namespace CodeGeneration
                 var signature = FunctionSignature(function);
                 var body = new List<string>();
                 
-                _code.Add(CodeLine.Of(signature, $"{cfg.Function}"));
+                _code.Add(CodeLine.Of($"{signature} {{", $"{cfg.Function}"));
 
                 foreach (var block in cfg.Blocks)
                 {
-                    _code.Add(CodeLine.Of($"L{block.Index}: "));
+                    _code.Add(CodeLine.Of($"L{block.Index}:;"));
                     foreach (var statement in block.Statements)
                     {
                         var c = CreateStatement(statement);
@@ -96,8 +119,15 @@ namespace CodeGeneration
 
                     if (block.Child is BranchBlock bb)
                     {
-                        
-                        var ex = bb.Expression;
+                        var expression = bb.Expression;
+                        var (t, code) = ComputeTemporary(expression);
+
+                        var ifBlock = new CodeBlock();
+                        ifBlock.Add(code);
+                        ifBlock.Add(CodeLine.Of($"if ({t.Name}) goto L{bb.TrueBlock.Index};"));
+                        ifBlock.Add(CodeLine.Of($"goto L{bb.FalseBlock.Index};", "else/end while"));
+
+                        AddCode(ifBlock.Lines);
                     }
                     else if (block.Child != null)
                     {
@@ -105,12 +135,15 @@ namespace CodeGeneration
                     }
                     else
                     {
+                        if (_code.Lines[^1].Code.StartsWith("return")) continue;
                         AddCode(CodeLine.Of("return;"));
                     }
                     
                     
                 }
 
+                _code.Add(CodeLine.Of("}", cfg.Function.ToString()));
+                _code.Add(EmptyLine);
                 _scopeStack.Pop();
             }
 
@@ -142,7 +175,7 @@ namespace CodeGeneration
             {
                 var temp = NextTemporary;
                 AddTemporary(new Variable{Name = id.Token.Content, Scope = CurrentScope}, temp);
-                output.Add(CodeLine.Of($"{VarSignature(node, temp.Name)};", id.Token.Content, id.Token.SourceInfo.LineRange.Line));
+                output.Add(CodeLine.Of($"{VarSignature(node, temp.Representation)};", id.Token.Content, id.Token.SourceInfo.LineRange.Line));
             }
 
             return output;
@@ -165,7 +198,8 @@ namespace CodeGeneration
 
             if (node.Expression is ValueNode vn)
             {
-                output.Add(CodeLine.Of($"{code}\n{temp.Name} = {GetValue(vn)}", node.LValue.Id.Token.Content));
+                output.Add(code);
+                output.Add(CodeLine.Of($"{temp.Representation} = {GetValue(vn)};", node.LValue.Id.Token.Content));
             }
             else
             {
@@ -176,7 +210,7 @@ namespace CodeGeneration
 
                 output.Add(code);
                 output.Add(code2);
-                output.Add(CodeLine.Of($"{temp.Name} = {temp2.Name}"));
+                output.Add(CodeLine.Of($"{temp.Representation} = {temp2.Representation};", node.LValue.Id.Token.Content));
             }
 
             return output;
@@ -199,12 +233,17 @@ namespace CodeGeneration
             for (var i = 0; i < node.Arguments.Count; i++)
             {
                 var reference = ((ParameterNode) node.Function.Parameters[i]).Reference;
-                argStrings.Add($"{(reference ? "&" : "")}{args[i].Name}");
+                argStrings.Add($"{(reference ? "&" : "")}{args[i].Representation}");
+
+                if (args[i].PrimitiveType is PrimitiveType.Array)
+                {
+                    argStrings.Add($"sizeof({args[i].Representation})/sizeof(*{args[i].Representation})");
+                }
             }
 
             var argString = string.Join(", ", argStrings);
 
-            code.Add(CodeLine.Of($"{node.Id.Token.Content}({argString})"));
+            code.Add(CodeLine.Of($"{node.Id.Token.Content}({argString});"));
             return code; // TODO
         }
 
@@ -225,6 +264,7 @@ namespace CodeGeneration
             PrimitiveType.String => "%s",
             PrimitiveType.Boolean => "%d",
         };
+        
         public CodeBlock WriteStatement(WriteStatementNode node)
         {
             var args = new List<IVariable>();
@@ -233,14 +273,14 @@ namespace CodeGeneration
 
             foreach (var arg in node.Arguments)
             {
-                var (t, code) = StoreOrLoad(arg);
+                var (t, code) = ComputeTemporary(arg);
                 args.Add(t);
                 printfTypes.Add(PrintfType(arg.Type.PrimitiveType));
                 result.Add(code);
             }
 
             var printString = string.Join(" ", printfTypes);
-            var argsString = string.Join(", ", args.Select(a => a.Name));
+            var argsString = string.Join(", ", args.Select(a => a.Representation));
             
             result.Add(CodeLine.Of($"printf(\"{printString}\\n\", {argsString});"));
 
@@ -249,7 +289,24 @@ namespace CodeGeneration
 
         public CodeBlock ReadStatement(ReadStatementNode node)
         {
-            return new CodeBlock();
+            var args = new List<IVariable>();
+            var scanfTypes = new List<string>();
+            var result = new CodeBlock();
+
+            foreach (var arg in node.Variables)
+            {
+                var (t, code) = ComputeTemporary(arg);
+                args.Add(t);
+                scanfTypes.Add(PrintfType(arg.Type.PrimitiveType));
+                result.Add(code);
+            }
+
+            var readString = string.Join(" ", scanfTypes);
+            var argsString = string.Join(", ", args.Select(a => $"&{a.Representation}"));
+
+            result.Add(CodeLine.Of($"scanf(\"{readString}\", {argsString});"));
+
+            return result;
         }
 
         public CodeBlock AssertStatement(AssertStatementNode node)
@@ -259,7 +316,10 @@ namespace CodeGeneration
 
         public CodeBlock ReturnStatement(ReturnStatementNode node)
         {
-            return new CodeBlock();
+            var (t, code) = ComputeTemporary(node.Expression);
+
+            code.Add(CodeLine.Of($"return {t.Name};"));
+            return code;
         }
 
         public void AddTemporary(IVariable variable, IVariable temporary)
@@ -279,6 +339,26 @@ namespace CodeGeneration
             return _temporaries[CurrentScope].TryGetValueOrDefault(variable.Name);
         }
 
+        private string Operator(OperatorType op) =>
+            op switch
+            {
+                OperatorType.Add => "+",
+                OperatorType.Sub => "-",
+                OperatorType.Mul => "*",
+                OperatorType.Div => "/",
+                OperatorType.Mod => "%",
+                OperatorType.And => "&&",
+                OperatorType.Or => "||",
+                OperatorType.Not => "!",
+                OperatorType.Eq => "==",
+                OperatorType.Neq => "!=",
+                OperatorType.Lt => "<",
+                OperatorType.Leq => "<=",
+                OperatorType.Geq => ">=",
+                OperatorType.Gt => ">",
+                _ => throw new Exception($"invalid operator {op}")
+            };
+        
         public (IVariable, CodeBlock) ComputeTemporary(Node node)
         {
             switch (node)
@@ -287,11 +367,20 @@ namespace CodeGeneration
                 case ValueNode n:
                 {
                     var t = NextTemporary;
-                    return (t, new CodeBlock(CodeLine.Of($"{t.Name} = {GetValue(n)};"))); // TODO
+                    return (t, new CodeBlock(CodeLine.Of($"{VarSignature(n, t.Name)} = {GetValue(n)};"))); // TODO
                 }
                 case BinaryOpNode n:
                 {
                     return CreateTemporaryFromExpression(n);
+                }
+                case UnaryOpNode n:
+                {
+                    var (expr, code) = ComputeTemporary(n.Expression);
+                    var t = NextTemporary;
+
+                    code.Add(CodeLine.Of(
+                        $"{VarSignature(n, t.Representation)} = {Operator(n.Op)}{expr.Representation};"));
+                    return (t, code);
                 }
                 case LValueNode n:
                 {
@@ -313,9 +402,19 @@ namespace CodeGeneration
                         }
                         case ArrayDereferenceNode adn:
                         {
-                            var t = NextTemporary;
+                            var existing = (TemporaryVariable) GetTemporary(adn.LValue.Variable);
+                            var (index, code) = ComputeTemporary(adn.Expression);
+
+                            var t = new TemporaryArrayDereference
+                            {
+                                Name = existing.Name,
+                                Scope = existing.Scope,
+                                PrimitiveType = existing.SubType,
+                                Index = index.Name
+                            };
+                            /*
                             var (res, code) = StoreOrLoad(adn);
-                            code.Add(CodeLine.Of($"{t.Name} = {res.Name}"));
+                            code.Add(CodeLine.Of($"{t.Name} = {res.Name}"));*/
                             //var (res2, code2) = StoreOrLoad(adn.Expression);
                             return (t, code);
                         }
@@ -326,52 +425,88 @@ namespace CodeGeneration
                 {
                     var code = new CodeBlock();
                     var args = new List<IVariable>();
-                    
+
                     foreach (var arg in n.Arguments)
                     {
                         var (argTemp, argCode) = ComputeTemporary(arg);
                         code.Add(argCode);
                         args.Add(argTemp);
+
+                        if (arg.Type.PrimitiveType is PrimitiveType.Array)
+                        {
+                            //var sizeT = NextTemporary;
+                            //code.Add(CodeLine.Of($"size_of {sizeT.Representation} = sizeof({argTemp.Representation})/sizeof(*{argTemp.Representation});"));
+                            args.Add(new TemporaryVariable
+                            {
+                                Name = $"_{argTemp.Representation}_size"
+                            });
+                        }
                     }
 
-                    var argString = string.Join(", ", args.Select(a => a.Name));
+                    var argString = string.Join(", ", args.Select(a => a.Representation));
 
                     var t = NextTemporary;
 
-                    code.Add(CodeLine.Of($"{t.Name} = {n.Id.Token.Content}({argString})"));
+                    code.Add(CodeLine.Of($"{VarSignature(n, t.Representation)} = {n.Id.Token.Content}({argString});"));
                     return (t, code); // TODO
+                }
+                case SizeNode n:
+                {
+                    //var (size, sizeCode) = StoreOrLoad(n);
+                    var (t, code) = ComputeTemporary(n.LValue);
+                    return (new TemporaryVariable
+                    {
+                        Name = $"_{t.Representation}_size"
+                    }, code);
                 }
             }
 
+            throw new Exception($"not implemented {node}");
             return (null, new CodeBlock());
         }
 
         public (IVariable, CodeBlock) StoreOrLoad(Node node)
         {
             var output = new CodeBlock();
+            // TODO: don't actually return value if not wrapped in valueof!
             if (node is ValueOfNode vof) return StoreOrLoad(vof.LValue);
             
             if (node is ArrayDereferenceNode adn)
             {
-                var (temp, code) = StoreOrLoad(adn.LValue);
-                var (tempIdx, code2) = ComputeTemporary(adn.Expression);
+                var existing = (TemporaryVariable) GetTemporary(adn.LValue.Variable);
+                var (index, code) = ComputeTemporary(adn.Expression);
 
+                var t = new TemporaryArrayDereference
+                {
+                    Name = existing.Name,
+                    Scope = existing.Scope,
+                    PrimitiveType = existing.SubType,
+                    Index = index.Name
+                };
                 output.Add(code); // TODO ?
-                return (temp, output);
+                return (t, output);
             }
 
             if (node is ValueNode vn)
             {
                 var t = NextTemporary;
-                output.Add(CodeLine.Of($"{_types[vn.Type.PrimitiveType]} {t.Name} = {GetValue(vn)}"));
+                output.Add(CodeLine.Of($"{VarSignature(vn, t.Representation)} = {GetValue(vn)};"));
                 return (t, output);
             }
 
+            
             if (node is CallNode cn)
             {
                 return ComputeTemporary(cn);
             }
-            // TODO: CallNode
+
+            if (node is SizeNode sn)
+            {
+                var t = NextTemporary;
+                var sizeVar = (TemporaryVariable) GetTemporary(sn.LValue.Variable);
+                output.Add(CodeLine.Of($"int {t.Representation} = _{sizeVar.Representation}_size"));
+                return (t, output);
+            }
 
             var variable = ((LValueNode) node).Variable;
             var tempVar = GetTemporary(variable);
@@ -398,50 +533,84 @@ namespace CodeGeneration
             var first = true;
             var output = new CodeBlock();
 
-            while (true)
-            {
-                if (_node.Right is BinaryOpNode bop)
-                {
-                    var (bopTemp, bopCode) = CreateTemporaryFromExpression(bop);
-                    output.Add(bopCode);
-                }
+            var left = "";
+            var right = "";
+            var signature = "";
 
-                if (_node.Left is LValueNode)
+            switch (_node.Left)
+            {
+                // TODO: check return type from operator or expression type
+                /*while (true)
+            {*/
+                case BinaryOpNode bopLeft:
+                {
+                    var (bopTemp, bopCode) = CreateTemporaryFromExpression(bopLeft);
+                    output.Add(bopCode);
+                    temp = bopTemp;
+                    break;
+                }
+                case LValueNode _:
                 {
                     var (_temp, code) = ComputeTemporary(_node.Left);
                     output.Add(code);
                     temp = _temp;
+                    break;
                 }
-
-                if (_node.Left is ValueNode vn)
+                case SizeNode sn:
+                {
+                    var (_temp, code) = ComputeTemporary(sn);
+                    output.Add(code);
+                    temp = _temp;
+                    break;
+                }
+                case ValueNode vn:
                 {
                     var t = NextTemporary;
-                    output.Add(CodeLine.Of($"{VarSignature(vn, t.Name)} = {vn.Value}"));
+                    output.Add(CodeLine.Of($"{VarSignature(vn, t.Representation)} = {GetValue(vn)};"));
                     temp = t;
+                    break;
                 }
+            }
 
-                if (_node.Right is LValueNode)
+            switch (_node.Right)
+            {
+                case LValueNode lvn:
                 {
+                    var t = NextTemporary;
                     var (_temp, code) = ComputeTemporary(_node.Right);
                     output.Add(code);
-                    output.Add(CodeLine.Of($"{temp.Name} = {temp.Name} {_node.Token.Content} {_temp.Name}"));
+                    output.Add(CodeLine.Of($"{VarSignature(lvn, t.Representation)} = {temp.Representation} {Operator(_node.Op)} {_temp.Representation};"));
 
-                    return (temp, output);
+                    return (t, output);
                 }
-
-                if (_node.Right is ValueNode vn2)
+                case ValueNode vn2:
                 {
-                    //AddCode();
-                    output.Add(CodeLine.Of($"{temp.Name} = {temp.Name} {_node.Token.Content} {vn2.Value}"));
-                    return (temp, output);
+                    var t = NextTemporary;
+                    output.Add(CodeLine.Of($"{VarSignature(vn2, t.Representation)} = {temp.Representation} {Operator(_node.Op)} {GetValue(vn2)};"));
+                    return (t, output);
                 }
+                case SizeNode sn2:
+                {
+                    var t = NextTemporary;
+                    var (_temp, code) = ComputeTemporary(sn2);
+                    output.Add(code);
+                    output.Add(CodeLine.Of($"{VarSignature(node, t.Representation)} = {temp.Representation} {Operator(_node.Op)} {_temp.Representation};"));
+                    return (t, output);
+                }
+                case BinaryOpNode bop:
+                    var (bopTemp, bopCode) = CreateTemporaryFromExpression(bop);
+                    output.Add(bopCode);
+                    output.Add(CodeLine.Of($"{temp.Representation} = {bopTemp.Representation} {Operator(_node.Op)} {temp.Representation};"));
+                    temp = bopTemp;
+                    break;
+            }
 
-                // TODO: unarynode and what have you
+            // TODO: unarynode and what have you
 
                 prevTemp = temp;
 
-                if (_node.Right is NoOpNode) break;
-            }
+/*                if (!(_node.Right is BinaryOpNode)) break;
+            }*/
 
             return (prevTemp, output);
         }
@@ -455,7 +624,7 @@ namespace CodeGeneration
                     PrimitiveType.Integer => "int",
                     PrimitiveType.Real => "float",
                     PrimitiveType.String => "char*",
-                    PrimitiveType.Boolean => "bool",
+                    PrimitiveType.Boolean => "int",
                     PrimitiveType.Void => "void"
                 };
                 return $"{type} {name}";
@@ -464,9 +633,13 @@ namespace CodeGeneration
             if (node.Type is ArrayTypeNode at)
             {
                 var size = -1;
+                var type = _types[at.SubType];
 
                 if (!(at.Size is NoOpNode) && !(at.Size is ValueNode))
                 {
+                    var (t, code) = ComputeTemporary(at.Size);
+                    AddCode(code.Lines);
+                    return $"{type} {name}[{t.Representation}]{(at.SubType == PrimitiveType.String ? "[255]" : "")}";
                     // evaluate the expression, output the temporary code and return the result temp
                 }
                 else if (at.Size is ValueNode vn)
@@ -474,20 +647,18 @@ namespace CodeGeneration
                     size = vn.Value;
                 }
                 
-                var type = _types[at.SubType];
-
-                return $"{type} {name}[{(size > 0 ? size.ToString() : "")}]";
+                return $"{type} {name}[{(size > 0 ? size.ToString() : "")}]{(at.SubType == PrimitiveType.String ? "[255]" : "")}";
             }
-            
-            throw new Exception($"got {node.Type}");
+
+            throw new Exception($"invalid type, got {node.Type} from {node}");
         }
 
         private readonly Dictionary<PrimitiveType, string> _types = new Dictionary<PrimitiveType, string>
         {
             [PrimitiveType.Integer] = "int",
             [PrimitiveType.Real] = "float",
-            [PrimitiveType.String] = "char*",
-            [PrimitiveType.Boolean] = "bool",
+            [PrimitiveType.String] = "char *",
+            [PrimitiveType.Boolean] = "int",
         };
         
         public string FunctionSignature(Function function)
@@ -506,9 +677,16 @@ namespace CodeGeneration
             {
                 var par = (ParameterNode) nodeParameters[i];
                 var temp = NextTemporary;
+                temp.Reference = par.Reference;
                 AddTemporary(par.Variable, temp);
-                parameters.Add(VarSignature(par, $"{(par.Reference ? "*": "")}{temp.Name}")); // TODO: reference?
+                parameters.Add(VarSignature(par, temp.Representation));
+
+                if (par.Type.PrimitiveType == PrimitiveType.Array)
+                {
+                    parameters.Add($"size_t _{temp.Representation}_size");
+                }
             }
+            
             var code = $"{VarSignature(variable.Node, name)} ({string.Join(", ", parameters)})";
 
             return code;

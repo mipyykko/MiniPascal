@@ -123,7 +123,7 @@ namespace Parse
                         {
                             alreadyPutErrorToken = true;
                             error = true;
-                            Console.WriteLine($"error: expected {Stack.Peek()}, got {_inputToken}");
+                            Console.WriteLine($"error: expected {Stack.Peek()}, got {_inputToken} on line {Context.Source.GetLine(_inputToken.SourceInfo.LineRange.Line)}");
 
                             var left = GathererStack.Peek().Error();
                             while (left-- > 0) Stack.Pop();
