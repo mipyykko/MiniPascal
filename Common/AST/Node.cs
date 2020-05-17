@@ -257,6 +257,7 @@ namespace Common.AST
         public override string AST(int depth = 0)
         {
             return $"{Spaces(depth)}[{Name}\n" +
+                   $"{Type.AST(depth + 1)}" + 
                    $"{LValue.AST(depth + 1)}" +
                    $"{Spaces(depth)}]\n";
         }
@@ -281,7 +282,7 @@ namespace Common.AST
 
         public override string ToString()
         {
-            return $"{Name} {Left}{Op}{Right}";
+            return $"{Name} {Left} {Op} {Right}";
         }
 
         public override string AST(int depth = 0)
@@ -703,7 +704,8 @@ namespace Common.AST
 
         public override string ToString()
         {
-            return $"{Name} {Token?.Content ?? ""}[{(Size is NoOpNode ? "" : Size.ToString())}] of {SubType}";
+            return "arraytype"; // TODO: fix some weird bug 
+            // return $"{Name} {Token?.Content ?? ""}[{(Size is NoOpNode ? "" : Size.ToString())}] of {SubType}";
         }
 
         public override string AST(int depth = 0)

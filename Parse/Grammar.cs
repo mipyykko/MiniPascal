@@ -198,7 +198,7 @@ namespace Parse
                 Production.Of(TokenType.OpenBlock, StatementType.IntegerExpr, TokenType.CloseBlock,
                     TokenType.Assignment, StatementType.Expr),
                 Collect.Of(false, true, false, false, true),
-                AssignmentStatement),
+                AssignmentToArrayStatement),
             Rule.Of(StatementType.AssignmentStatementOrCall,
                 Production.Of(TokenType.Assignment, StatementType.Expr),
                 Collect.Of(false, true),

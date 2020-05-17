@@ -138,21 +138,57 @@ begin
   A(50);
 end.
 ";
-            Context.Source = Text.Of(program6);
+
+            var program7 = @"program ArrayReturn;
+
+function reverse(data : array[] of integer): array[] of integer;
+
+begin
+  var i : integer;
+  i := data.size;
+  var B : array[i] of integer;
+
+  while i >= 0 do
+  begin
+    B[data.size - i] := data[i];
+    i := i - 1;
+  end;
+
+  return B;
+end;
+
+begin
+  var A : array[3] of integer;
+  A[0] := 1;
+  A[1] := 2;
+  A[2] := 3;
+
+  var B : array[3] of integer;
+  B := reverse(A);
+
+  var i : integer;
+  i := 0;
+
+  while i < B.size do
+    writeln(B[i]);
+  
+end.
+";
+            Context.Source = Text.Of(program2);
 
             var s = new Scanner();
             var p = new Parser(s);
 
             var v = (ProgramNode) p.BuildTree();
             
-            Console.WriteLine(v.AST());
-
             /*
              * TODO:
              * - check array sizes where the expression is possible to evaluate
              * - check for array type compatibility where array size is known      
              */
             var cfg = ScopeAnalyzer.Analyze(v);
+
+            Console.WriteLine(v.AST());
 
             /*Console.WriteLine(JsonConvert.SerializeObject(v, Formatting.Indented, new JsonSerializerSettings
             {

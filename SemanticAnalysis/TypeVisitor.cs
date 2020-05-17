@@ -41,20 +41,40 @@ namespace ScopeAnalyze
             return null;
         }
 
+        private bool CheckLHSType(TypeNode l, TypeNode r)
+        {
+            if (l.GetType() != r.GetType()) return false;
+
+            switch (l)
+            {
+                case SimpleTypeNode st when st.PrimitiveType != r.PrimitiveType:
+                case ArrayTypeNode at when r.PrimitiveType != PrimitiveType.Array:
+                    return false;
+                case ArrayTypeNode at when at.SubType != ((ArrayTypeNode) r).SubType:
+                    return false;
+                default:
+                    return true;
+            }
+        }
+        
         public override dynamic Visit(AssignmentNode node)
         {
             // var id = node.Id.Token.Content; // Accept(this);
             //var variable = GetVariable(id);
             // var variable = node.Variable;
-            var id = ((LValueNode) node.LValue).Id.Accept(this);
-            var lValueType = node.LValue.Accept(this);
+            var id = node.LValue.Id.Accept(this);
+            node.LValue.Accept(this);
+
+            var lValueType = node.LValue.Type;
             //var indexExpressionType = node.IndexExpression.Accept(this);
 
             //if (indexExpressionType != null && variable.PrimitiveType != PrimitiveType.Array)
             //    throw new Exception($"cannot index a non-array variable {id}");
-            var statementType = node.Expression.Accept(this);
+            node.Expression.Accept(this);
 
-            if (statementType != lValueType)
+            var statementType = node.Expression.Type;
+            
+            if (!CheckLHSType(lValueType, statementType))
             {
                 throw new Exception($"type error: can't assign {statementType} to {id} of type {lValueType}");
             }
@@ -80,7 +100,31 @@ namespace ScopeAnalyze
         {
             switch (node)
             {
-                case ValueOfNode vofNode: return GetArgumentInfo(vofNode.LValue); // TODO: actually get this working
+                case ValueOfNode vofNode: {
+                    switch (vofNode.LValue)
+                    {
+                        case VariableNode varNode:
+                        {
+                            var argId = varNode.Id.Accept(this);
+                            var argVariable = (Variable) GetVariable(argId);
+
+                            return (argVariable.PrimitiveType, argVariable.SubType, argVariable.Size);
+                        }
+                        case ArrayDereferenceNode arrNode:
+                        {
+                            
+                            var argId = ((VariableNode) arrNode.LValue).Id.Accept(this);
+                            var argVariable = (Variable) GetVariable(argId);
+                            var index = arrNode.Expression.Accept(this);
+
+                            return index != null
+                                ? (argVariable.SubType, PrimitiveType.Void, -1)
+                                : (PrimitiveType.Array, argVariable.SubType, argVariable.Size);
+                        }
+                    }
+
+                    throw new Exception($"got unknown argument {vofNode}");
+                }    
                 case VariableNode varNode:
                 {
                     var argId = varNode.Id.Accept(this);
@@ -144,7 +188,8 @@ namespace ScopeAnalyze
                 {
                     node.Arguments[i] = new ValueOfNode
                     {
-                        LValue = ln
+                        LValue = ln,
+                        Type = ln.Type
                     };
                 }
 
@@ -236,8 +281,6 @@ namespace ScopeAnalyze
             var type = RelationalOperators.Contains(op)
                 ? PrimitiveType.Boolean
                 : left;
-
-            // node.Type.PrimitiveType = type;// TODO: not what's supposed to be
 
             node.Type = new SimpleTypeNode
             {
@@ -333,8 +376,8 @@ namespace ScopeAnalyze
                 {
                     var size = at.Size.Accept(this);
 
-                    if (size != PrimitiveType.Integer)
-                        throw new Exception($"array {id} size must be an integer expression");
+                    //if (size != PrimitiveType.Integer)
+                    //    throw new Exception($"array {id} size must be an integer expression");
                 }
             }
 
@@ -391,17 +434,38 @@ namespace ScopeAnalyze
         {
             var currentNode = (IdNode) FunctionStack.Peek();
             var id = currentNode.Id.Accept(this);
-            var type = node.Expression.Accept(this) ?? PrimitiveType.Void;
+            node.Expression.Accept(this);
+
+            var type = currentNode.Type;
+            
+            var expressionType = node.Expression.Type.PrimitiveType;
+            var expressionSubType = node.Expression.Type is ArrayTypeNode eat ? eat.SubType : PrimitiveType.Void;
 
             if (!(node.Expression is NoOpNode) && currentNode is ProcedureDeclarationNode pn)
                 throw new Exception($"cannot return a value from procedure {id}");
 
-            if (node.Expression is NoOpNode && type != PrimitiveType.Void && currentNode is FunctionDeclarationNode fn)
+            if (node.Expression is NoOpNode && expressionType != PrimitiveType.Void && currentNode is FunctionDeclarationNode fn)
                 throw new Exception($"must return value of {type} from function {id}");
 
-            if (type != currentNode.Type.PrimitiveType)
-                throw new Exception(
-                    $"must return value of type {currentNode.Type.PrimitiveType} from function{id}, tried to return {type}");
+            if (type is ArrayTypeNode at)
+            {
+                if (expressionType != PrimitiveType.Array)
+                {
+                    throw new Exception(
+                        $"must return array of type {at.SubType} from function{id}, tried to return {expressionType}");
+                }
+                if (at.SubType != expressionSubType)
+                {
+                    throw new Exception(
+                        $"must return array of type {at.SubType} from function{id}, tried to return array of {expressionSubType}");
+                }
+            }
+            else
+            {
+                if (expressionType != type.PrimitiveType)
+                    throw new Exception(
+                        $"must return value of type {type.PrimitiveType} from function{id}, tried to return {expressionType}");
+            }
 
             return null;
         }
@@ -419,9 +483,9 @@ namespace ScopeAnalyze
         {
             foreach (var v in node.Variables)
             {
-                v.Accept(this);
                 if (!(v is LValueNode))
                     throw new Exception($"read statement must have a variable as a parameter, got {v}");
+                v.Accept(this);
             }
 
             return null;
@@ -436,8 +500,18 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(WriteStatementNode node)
         {
-            foreach (var argument in node.Arguments)
-            {
+            for (var i = 0; i < node.Arguments.Count; i++) {
+                if (node.Arguments[i] is LValueNode lvn)
+                {
+                    node.Arguments[i] = new ValueOfNode
+                    {
+                        LValue = lvn,
+                        Type = lvn.Type,
+                        Token = lvn.Token
+                    };
+                }
+
+                var argument = node.Arguments[i];
                 argument.Accept(this);
                 // var id = ((IdNode) argument).Id.Accept(this);
 
@@ -496,9 +570,11 @@ namespace ScopeAnalyze
         {
             // node.LValue.Accept(this);
             var lValueType = node.LValue.Accept(this);
-            var expression = node.Expression.Accept(this);
+            node.Expression.Accept(this);
 
-            if (expression == null)
+            var expressionType = node.Expression is NoOpNode ? null : node.Expression.Type;
+            
+            /*if (expressionType == null)
             {
                 node.Type = new ArrayTypeNode
                 {
@@ -506,11 +582,11 @@ namespace ScopeAnalyze
                     SubType = ((ArrayTypeNode) node.LValue.Type).SubType
                 };
                 return PrimitiveType.Array;
-            }
+            }*/
 
             node.Type = new SimpleTypeNode
             {
-                PrimitiveType = lValueType
+                PrimitiveType = lValueType // ((ArrayTypeNode) lValueType).SubType
             };
 
             return lValueType;

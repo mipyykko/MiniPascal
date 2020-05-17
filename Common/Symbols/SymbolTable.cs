@@ -21,7 +21,9 @@ namespace Common.Symbols
     {
         public Node ReferenceNode;
         public int Size = -1;
-
+        public int InternalSize = -1;
+        public bool Dynamic = false;
+        
         public override string ToString()
         {
             return $"Variable {Name}: {(PrimitiveType == PrimitiveType.Array ? $"{PrimitiveType} of {SubType}" : PrimitiveType.ToString())}";
@@ -44,7 +46,7 @@ namespace Common.Symbols
     {
         public string Index = "";
 
-        public override string Representation => $"{Name}[{Index}]";
+        public override string Representation => $"{Name}->data[{Index}]";
     }
 
     public class BuiltinVariable : Variable

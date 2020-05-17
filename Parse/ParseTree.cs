@@ -194,27 +194,32 @@ namespace Parse
         {
             if (p[0] is ErrorNode) return p[0];
             
-            var index = p.Length < 2 || p[1] == null ? NoOpStatement : p[0];
-            var expr = index is NoOpNode ? p[0] : p[1];
-
-            LValueNode lValue = index switch
-            {
-                NoOpNode _ => new VariableNode(),
-                _ => new ArrayDereferenceNode
-                {
-                    LValue = new VariableNode(),
-                    Expression = index
-                }
-            };
+            var expr = p[0];
 
             return new AssignmentNode
             {
-                LValue = lValue,    
-                // IndexExpression = index,
+                LValue = new VariableNode(),    
                 Expression = expr
             };
         }
 
+        public static Node AssignmentToArrayStatement(dynamic[] p)
+        {
+            if (p[0] is ErrorNode) return p[0];
+
+            var index = p[0];
+            var expr = p[1];
+
+            return new AssignmentNode
+            {
+                LValue = new ArrayDereferenceNode
+                {
+                    LValue = new VariableNode(),
+                    Expression = index
+                },
+                Expression = expr
+            };
+        }
         /**
          * Expects
          *
@@ -405,6 +410,21 @@ namespace Parse
                 _ => throw new Exception($"unknown operator {op}")
             };
 
+        public static Node WrapLValue(Node node)
+        {
+            if (node is LValueNode lv)
+            {
+                return new ValueOfNode
+                {
+                    LValue = lv,
+                    Type = lv.Type,
+                    Token = lv.Token
+                };
+            }
+
+            return node;
+        }
+
         /**
          * Expects
          *
@@ -420,10 +440,10 @@ namespace Parse
 
             return new BinaryOpNode
             {
-                Left = p[0],
+                Left = WrapLValue(p[0]),
                 Op = OperatorTypeFromToken(p[1].Content),
-                Token = p[1], // TODO: op?
-                Right = p[2],
+                Token = p[1], 
+                Right = WrapLValue(p[2]),
                 Type = new SimpleTypeNode() // TODO (?)
             };
         }
@@ -453,7 +473,7 @@ namespace Parse
             {
                 Token = p[0],
                 Op = OperatorTypeFromToken(p[0].Content),
-                Expression = p[1],
+                Expression = WrapLValue(p[1]),
                 Type = new SimpleTypeNode() // TODO ?
             };
             /*return new ExpressionNode
@@ -501,7 +521,11 @@ namespace Parse
             return new SizeNode
             {
                 LValue = p[0],
-                Token = p[1]
+                Token = p[1],
+                Type = new SimpleTypeNode 
+                {
+                    PrimitiveType = PrimitiveType.Integer
+                }
             };
         }
 
@@ -519,7 +543,7 @@ namespace Parse
             {
                 Token = p[0],
                 Op = OperatorTypeFromToken(p[0].Content),
-                Expression = p[1]
+                Expression = WrapLValue(p[1])
             };
         }
 

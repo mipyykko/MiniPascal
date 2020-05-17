@@ -266,23 +266,15 @@ namespace ScopeAnalyze
         public override dynamic Visit(ReadStatementNode node)
         {
             foreach (var n in node.Variables) n.Accept(this);
-            // node.Variables.Select(n => n.Accept(this));
 
             return null;
         }
 
         public override dynamic Visit(WriteStatementNode node)
         {
-            for (var i = 0; i < node.Arguments.Count; i++)
+            foreach (var argument in node.Arguments)
             {
-                if (node.Arguments[i] is LValueNode lvn)
-                    node.Arguments[i] = new ValueOfNode
-                    {
-                        LValue = lvn,
-                        Type = lvn.Type,
-                        Token = lvn.Token
-                    };
-                node.Arguments[i].Accept(this);
+                argument.Accept(this);
             }
 
             return null;

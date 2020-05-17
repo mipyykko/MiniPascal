@@ -341,6 +341,7 @@ namespace ScopeAnalyze
             var id = node.Id.Accept(this);
             var variable = (Variable) GetVariable(id);
 
+            if (variable == null) throw new Exception($"undeclared variable {id}");
             node.Variable = variable;
             return null;
         }
@@ -349,6 +350,9 @@ namespace ScopeAnalyze
         {
             node.LValue.Accept(this);
             node.Expression.Accept(this);
+
+            if (node.LValue.Variable == null) throw new Exception($"undeclared variable {node.LValue.Id.Accept(this)}");
+
             node.Variable = node.LValue.Variable;
 
             return null;
@@ -356,6 +360,7 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(ValueOfNode node)
         {
+            node.LValue.Accept(this);
             return null;
         }
 

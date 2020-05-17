@@ -252,7 +252,9 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(ValueOfNode node)
         {
-            throw new System.NotImplementedException();
+            node.LValue.Accept(this);
+            
+            return null;
         }
 
         public override dynamic Visit(ErrorNode node)

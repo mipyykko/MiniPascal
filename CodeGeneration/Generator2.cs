@@ -81,11 +81,14 @@ namespace CodeGeneration
         private static int _nextTemporary = 0;
         private Stack<Scope> _scopeStack = new Stack<Scope>();
         private Dictionary<Scope, Dictionary<string, IVariable>> _temporaries = new Dictionary<Scope, Dictionary<string, IVariable>>();
-        
+        private Dictionary<Scope, List<string>> _freeable = new Dictionary<Scope, List<string>>();
+        private HashSet<string> _helperFunctions = new HashSet<string>();
+
         private Scope CurrentScope => _scopeStack.Count > 0 ? _scopeStack.Peek() : null;
         public TemporaryVariable NextTemporary => new TemporaryVariable
         {
             Name = $"v{_nextTemporary++}",
+            Scope = CurrentScope
         };
 
         public Generator2(List<CFG> cfgs)
@@ -103,6 +106,7 @@ namespace CodeGeneration
             {
                 var function = cfg.Function;
                 _scopeStack.Push(function.Scope);
+                _freeable[function.Scope] = new List<string>();
                 var signature = FunctionSignature(function);
                 var body = new List<string>();
                 
@@ -135,6 +139,10 @@ namespace CodeGeneration
                     }
                     else
                     {
+                        foreach (var t in _freeable[CurrentScope])
+                        {
+                            AddCode(CodeLine.Of($"free({t});"));
+                        }
                         if (_code.Lines[^1].Code.StartsWith("return")) continue;
                         AddCode(CodeLine.Of("return;"));
                     }
@@ -147,7 +155,16 @@ namespace CodeGeneration
                 _scopeStack.Pop();
             }
 
-            return _code.ToString(); //string.Join("\n", _code);
+            var output = "";
+            
+            foreach (var h in _helperFunctions)
+            {
+                output += $"{h}\n";
+            }
+            
+            output += _code.ToString();
+            
+            return output; //string.Join("\n", _code);
         }
 
         public CodeBlock CreateStatement(Node node)
@@ -167,15 +184,87 @@ namespace CodeGeneration
             };
         }
 
+        public CodeBlock ComputeArraySize(Node idNode, VarDeclarationNode node)
+        {
+            var output = new CodeBlock();
+            var temp = NextTemporary;
+            var v = new Variable
+            {
+                Name = idNode.Token.Content, 
+                Scope = CurrentScope
+            };
+            AddTemporary(v, temp);
+
+            var at = (ArrayTypeNode) node.Type;
+
+            var size = -1;
+            var type = _types[at.SubType];
+            var sizeStr = "";
+
+            switch (at.Size)
+            {
+                case NoOpNode _:
+                    temp.InternalSize = Constants.INITIAL_ARRAY_SIZE;
+                    temp.Dynamic = true;
+                    temp.Size = 0;
+                    sizeStr = $"{temp.InternalSize}";
+                    break;
+                case ValueNode vn:
+                    temp.Size = vn.Value;
+                    temp.InternalSize = size;
+                    sizeStr = $"{temp.Size}";
+                    break;
+                default:
+                {
+                    var (t, code) = ComputeTemporary(at.Size);
+                    output.Add(code);
+                    sizeStr = t.Representation; // SizeVariable(temp);
+                    break;
+                }
+                    
+            }
+            // TODO: skip this if value
+
+            output.Add(CodeLine.Of($"struct _{at.SubType}Array *{temp.Representation};"));
+            output.Add(CodeLine.Of($"{temp.Representation} = _{at.SubType}InitArray({temp.Size});"));
+            /*var sizeVar = new TemporaryVariable
+            {
+                Name = SizeVariable(temp)
+            };
+            output.Add(CodeLine.Of($"size_t {sizeVar.Representation};"));
+            output.Add(CodeLine.Of($"{sizeVar.Representation} = {sizeStr};"));
+            output.Add(CodeLine.Of($"{VarSignature(node, temp.Representation)};", idNode.Token.Content, idNode.Token.SourceInfo.LineRange.Line));
+            output.Add(CodeLine.Of($"{temp.Representation} = ({type}*) malloc(sizeof({type})*{sizeVar.Representation});"));
+            */AddFreeable(temp);
+
+            return output;
+        }
+
         public CodeBlock VarDeclarationStatement(VarDeclarationNode node)
         {
             var output = new CodeBlock();
 
             foreach (var id in node.Ids)
             {
-                var temp = NextTemporary;
-                AddTemporary(new Variable{Name = id.Token.Content, Scope = CurrentScope}, temp);
-                output.Add(CodeLine.Of($"{VarSignature(node, temp.Representation)};", id.Token.Content, id.Token.SourceInfo.LineRange.Line));
+                if (node.Type is SimpleTypeNode)
+                {
+                    var temp = NextTemporary;
+                    var v = new Variable
+                    {
+                        Name = id.Token.Content,
+                        Scope = CurrentScope
+                    };
+                    AddTemporary(v, temp);
+                    output.Add(CodeLine.Of($"{VarSignature(node, temp.Representation)};", id.Token.Content,
+                        id.Token.SourceInfo.LineRange.Line));
+                } else
+                {
+                    var type = ((ArrayTypeNode) node.Type).SubType;
+                    _helperFunctions.Add(GetArrayStructure(type));
+                    _helperFunctions.Add(GetArrayFunctions(type));
+                    var code = ComputeArraySize(id, node);
+                    output.Add(code);
+                }
             }
 
             return output;
@@ -235,10 +324,10 @@ namespace CodeGeneration
                 var reference = ((ParameterNode) node.Function.Parameters[i]).Reference;
                 argStrings.Add($"{(reference ? "&" : "")}{args[i].Representation}");
 
-                if (args[i].PrimitiveType is PrimitiveType.Array)
+                /*if (args[i].PrimitiveType is PrimitiveType.Array)
                 {
                     argStrings.Add($"sizeof({args[i].Representation})/sizeof(*{args[i].Representation})");
-                }
+                }*/
             }
 
             var argString = string.Join(", ", argStrings);
@@ -293,6 +382,10 @@ namespace CodeGeneration
             var scanfTypes = new List<string>();
             var result = new CodeBlock();
 
+            /* TODO: check if argument is arraydereference - if it is,
+             * create temporary, pass that temporary as argument
+             * and after scanf _{type}Assign it to array
+             */
             foreach (var arg in node.Variables)
             {
                 var (t, code) = ComputeTemporary(arg);
@@ -332,6 +425,16 @@ namespace CodeGeneration
             _temporaries[variable.Scope][variable.Name] = temporary;
         }
 
+        public void AddFreeable(IVariable temporary)
+        {
+            if (!_freeable.ContainsKey(temporary.Scope))
+            {
+                _freeable[temporary.Scope] = new List<string>();
+            }
+            
+            _freeable[temporary.Scope].Add(temporary.Name);
+        }
+        
         public IVariable GetTemporary(IVariable variable)
         {
             if (!_temporaries.ContainsKey(CurrentScope)) return null;
@@ -432,15 +535,13 @@ namespace CodeGeneration
                         code.Add(argCode);
                         args.Add(argTemp);
 
-                        if (arg.Type.PrimitiveType is PrimitiveType.Array)
+                        /*if (arg.Type.PrimitiveType is PrimitiveType.Array)
                         {
-                            //var sizeT = NextTemporary;
-                            //code.Add(CodeLine.Of($"size_of {sizeT.Representation} = sizeof({argTemp.Representation})/sizeof(*{argTemp.Representation});"));
                             args.Add(new TemporaryVariable
                             {
-                                Name = $"_{argTemp.Representation}_size"
+                                Name = SizeVariable(argTemp)
                             });
-                        }
+                        }*/
                     }
 
                     var argString = string.Join(", ", args.Select(a => a.Representation));
@@ -452,12 +553,16 @@ namespace CodeGeneration
                 }
                 case SizeNode n:
                 {
-                    //var (size, sizeCode) = StoreOrLoad(n);
-                    var (t, code) = ComputeTemporary(n.LValue);
+                    var (arrTemp, code) = ComputeTemporary(n.LValue);
+
                     return (new TemporaryVariable
                     {
-                        Name = $"_{t.Representation}_size"
+                        Name = SizeVariable(arrTemp)
                     }, code);
+                }
+                case NoOpNode n:
+                {
+                    return (null, new CodeBlock());
                 }
             }
 
@@ -533,15 +638,16 @@ namespace CodeGeneration
             var first = true;
             var output = new CodeBlock();
 
-            var left = "";
-            var right = "";
-            var signature = "";
+            var (left, leftCode) = ComputeTemporary(_node.Left);
+            output.Add(leftCode);
+            var (right, rightCode) = ComputeTemporary(_node.Right);
+            output.Add(rightCode);
 
-            switch (_node.Left)
+            var t = NextTemporary;
+            output.Add(CodeLine.Of($"{VarSignature(node, t.Representation)} = {left.Representation} {Operator(node.Op)} {right.Representation}"));
+            /*switch (_node.Left)
             {
                 // TODO: check return type from operator or expression type
-                /*while (true)
-            {*/
                 case BinaryOpNode bopLeft:
                 {
                     var (bopTemp, bopCode) = CreateTemporaryFromExpression(bopLeft);
@@ -608,25 +714,16 @@ namespace CodeGeneration
             // TODO: unarynode and what have you
 
                 prevTemp = temp;
+            */
 
-/*                if (!(_node.Right is BinaryOpNode)) break;
-            }*/
-
-            return (prevTemp, output);
+            return (/*prevTemp*/t, output);
         }
         
         public string VarSignature(Node node, string name)
         {
             if (node.Type is SimpleTypeNode st)
             {
-                var type = st.PrimitiveType switch
-                {
-                    PrimitiveType.Integer => "int",
-                    PrimitiveType.Real => "float",
-                    PrimitiveType.String => "char*",
-                    PrimitiveType.Boolean => "int",
-                    PrimitiveType.Void => "void"
-                };
+                var type = _types[st.PrimitiveType];
                 return $"{type} {name}";
             }
 
@@ -635,19 +732,20 @@ namespace CodeGeneration
                 var size = -1;
                 var type = _types[at.SubType];
 
-                if (!(at.Size is NoOpNode) && !(at.Size is ValueNode))
+                return $"_{at.SubType}Array *{name}";
+                //return $"{type} *{name}";
+/*                if (!(at.Size is NoOpNode) && !(at.Size is ValueNode))
                 {
                     var (t, code) = ComputeTemporary(at.Size);
-                    AddCode(code.Lines);
                     return $"{type} {name}[{t.Representation}]{(at.SubType == PrimitiveType.String ? "[255]" : "")}";
                     // evaluate the expression, output the temporary code and return the result temp
                 }
-                else if (at.Size is ValueNode vn)
+                if (at.Size is ValueNode vn)
                 {
                     size = vn.Value;
                 }
                 
-                return $"{type} {name}[{(size > 0 ? size.ToString() : "")}]{(at.SubType == PrimitiveType.String ? "[255]" : "")}";
+                return $"{type} {name}[{(size > 0 ? size.ToString() : "")}]{(at.SubType == PrimitiveType.String ? "[255]" : "")}";*/
             }
 
             throw new Exception($"invalid type, got {node.Type} from {node}");
@@ -659,6 +757,7 @@ namespace CodeGeneration
             [PrimitiveType.Real] = "float",
             [PrimitiveType.String] = "char *",
             [PrimitiveType.Boolean] = "int",
+            [PrimitiveType.Void] = "void"
         };
         
         public string FunctionSignature(Function function)
@@ -668,7 +767,7 @@ namespace CodeGeneration
 
             if (name.Equals("$main$"))
             {
-                return "int main(int argc, char **argv)";
+                return "int main()";
             }
 
             var parameters = new List<string>();
@@ -681,15 +780,84 @@ namespace CodeGeneration
                 AddTemporary(par.Variable, temp);
                 parameters.Add(VarSignature(par, temp.Representation));
 
-                if (par.Type.PrimitiveType == PrimitiveType.Array)
+                /*if (par.Type.PrimitiveType == PrimitiveType.Array)
                 {
-                    parameters.Add($"size_t _{temp.Representation}_size");
-                }
+                    parameters.Add($"size_t {SizeVariable(temp)}");
+                }*/
             }
             
             var code = $"{VarSignature(variable.Node, name)} ({string.Join(", ", parameters)})";
 
             return code;
+        }
+
+        public string SizeVariable(IVariable v)
+        {
+            return $"{v.Representation}->size";
+        }
+
+        private string TypeStr(PrimitiveType type) => type switch
+        {
+            PrimitiveType.Boolean => "int ",
+            PrimitiveType.Integer => "int ",
+            PrimitiveType.Real => "float ",
+            PrimitiveType.String => "char *",
+            _ => throw new Exception()
+        };
+
+        private string GetArrayStructure(PrimitiveType type)
+        {
+
+            return $@"struct _{type}Array {{
+  {TypeStr(type)}*data;
+  int elementSize;
+  size_t internalSize;
+  size_t size;
+  int dynamic;
+}};";
+        }
+
+        private string GetArrayFunctions(PrimitiveType type)
+        {
+            return $@"struct _{type}Array *_{type}InitArray(size_t size) {{
+  struct _{type}Array *arr = malloc(sizeof(struct _{type}Array));
+  arr->elementSize = sizeof(int);  
+  arr->dynamic = size == 0;
+  arr->size = arr->dynamic ? 0 : size;
+  arr->internalSize = arr->dynamic ? 8 : size;
+  arr->data = malloc(arr->internalSize * arr->elementSize);
+
+  return arr; 
+}}
+
+void _{type}Resize(struct _{type}Array *arr, int idx) {{
+  while (idx >= arr->internalSize) arr->internalSize *= 2;
+  char *tmp = realloc(arr->data, arr->internalSize * arr->elementSize);
+  if (tmp != NULL) {{
+    arr->data = tmp; 
+    if (idx >= arr->size) arr->size = idx + 1;
+   }}    
+}} 
+
+void _{type}Assign(struct _{type}Array *arr, int idx, {TypeStr(type)} data) {{
+  if (!arr->dynamic && idx >= arr->size) {{
+    printf(""index error\n"");
+    exit(1);
+  }}
+
+  if (idx >= arr->size) {{
+    _{type}Resize(arr, idx);
+  }}
+
+  arr->data[idx] = data;
+}}
+
+{TypeStr(type)} get(struct _{type}Array *arr, int idx) {{
+  if (idx >= arr->size) return -1;
+  
+  return arr->data[idx];
+}}
+";
         }
     }
 }
