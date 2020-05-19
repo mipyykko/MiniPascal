@@ -34,6 +34,13 @@ namespace Common.Symbols
     {
         
     }
+
+    public class Literal : Variable
+    {
+        public ValueNode Value;
+
+        public override string Representation => $"{Value.Value}";
+    }
     
     public class TemporaryVariable : Variable
     {
@@ -46,7 +53,7 @@ namespace Common.Symbols
     {
         public string Index = "";
 
-        public override string Representation => $"{Name}->data[{Index}]";
+        public override string Representation => $"{Name}.data[{Index}]";
     }
 
     public class BuiltinVariable : Variable
@@ -62,7 +69,7 @@ namespace Common.Symbols
         public List<Node> Parameters;
         
     }
-
+    
     public class UserFunctionVariable : FunctionVariable
     {
         public override string ToString()
