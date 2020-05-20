@@ -14,26 +14,11 @@ namespace CodeGeneration
     {
         public static int MaxLineLength;
         public int Depth;
-
+        
         public List<CodeLine> Lines = new List<CodeLine>();
 
         public CodeBlock()
         {
-        }
-
-        public CodeBlock(CodeLine c)
-        {
-            Add(c);
-        }
-
-        public CodeBlock(IEnumerable<CodeLine> c)
-        {
-            Add(c);
-        }
-
-        public CodeBlock(CodeBlock c)
-        {
-            Add(c);
         }
 
         public void Add(CodeLine c)
@@ -148,7 +133,7 @@ int _checkIndex(a, i) {
             [PrimitiveType.Void] = "void"
         };
 
-        private readonly CodeBlock _code = new CodeBlock();
+        private readonly List<CodeBlock> _code = new List<CodeBlock>();
         private readonly Dictionary<Scope, List<string>> _freeable = new Dictionary<Scope, List<string>>();
         private HashSet<string> _helperFunctions = new HashSet<string>();
         private readonly Stack<Scope> _scopeStack = new Stack<Scope>();
@@ -174,16 +159,6 @@ int _checkIndex(a, i) {
 
         public static CodeLine EmptyLine => CodeLine.Of("");
 
-        public void AddCode(CodeLine c)
-        {
-            _code.Add(c);
-        }
-
-        public void AddCode(IEnumerable<CodeLine> c)
-        {
-            _code.Add(c);
-        }
-
         public string Generate()
         {
             foreach (var cfg in Cfgs)
@@ -192,18 +167,23 @@ int _checkIndex(a, i) {
                 _scopeStack.Push(function.Scope);
                 _freeable[function.Scope] = new List<string>();
                 var signature = FunctionSignature(function);
-                var body = new List<string>();
-
-                _code.Add(CodeLine.Of($"{signature} {{", $"{cfg.Function}"));
-
+                var cfgCodeBlock = new CodeBlock();
+                cfgCodeBlock.Add(CodeLine.Of($"{signature} {{", $"{cfg.Function}"));
+                cfgCodeBlock.Indent();
+                
                 foreach (var block in cfg.Blocks)
                 {
-                    _code.Indent();
-                    _code.Add(CodeLine.Of($"L{block.Index}:;"));
+                    var blockCodeBlock = new CodeBlock
+                    {
+                        Depth = cfgCodeBlock.Depth
+                    };
+                    blockCodeBlock.Dedent();
+                    blockCodeBlock.Add(CodeLine.Of($"L{block.Index}:;"));
+                    blockCodeBlock.Indent();
                     foreach (var statement in block.Statements)
                     {
                         var c = CreateStatement(statement);
-                        _code.Add(c);
+                        blockCodeBlock.Add(c);
                     }
 
                     if (block.Child is BranchBlock bb)
@@ -213,36 +193,41 @@ int _checkIndex(a, i) {
 
                         var ifBlock = new CodeBlock
                         {
-                            Depth = _code.Depth
+                            Depth = blockCodeBlock.Depth
                         };
                         ifBlock.Add(code);
                         ifBlock.Add(CodeLine.Of($"if ({t.Name}) goto L{bb.TrueBlock.Index};"));
                         ifBlock.Add(CodeLine.Of($"goto L{bb.FalseBlock.Index};", "else/end while"));
 
-                        AddCode(ifBlock.Lines);
+                        blockCodeBlock.Add(ifBlock);
                     }
                     else if (block.Child != null)
                     {
-                        AddCode(CodeLine.Of($"goto L{block.Child.Index};"));
+                        blockCodeBlock.Add(CodeLine.Of($"goto L{block.Child.Index};"));
                     }
-                    else
+                    else if (blockCodeBlock.Lines.Count > 0 && !blockCodeBlock.Lines[^1].Code.StartsWith("return"))
                     {
-                        foreach (var t in _freeable[CurrentScope]) AddCode(CodeLine.Of($"_destroy({t});"));
+                        blockCodeBlock.Add(CodeLine.Of("return;"));
+                    }
 
-                        if (_code.Lines[^1].Code.StartsWith("return"))
+                    /*if (blockCodeBlock.Lines.Count == 0 || blockCodeBlock.Lines[^1].Code.StartsWith("return"))
                         {
-                            _code.Dedent();
+                            // BlockCodeBlock.Dedent();
+                            _code.Add(blockCodeBlock);
                             continue;
                         }
 
-                        AddCode(CodeLine.Of("return;"));
-                    }
+                        blockCodeBlock.Add(CodeLine.Of("return;"));
+                    }*/
 
-                    _code.Dedent();
+                    cfgCodeBlock.Add(blockCodeBlock);
                 }
 
-                _code.Add(CodeLine.Of("}", cfg.Function.ToString()));
-                _code.Add(EmptyLine);
+                cfgCodeBlock.Dedent();
+                cfgCodeBlock.Add(CodeLine.Of("}", cfg.Function.ToString()));
+                // _code.Add(CodeLine.Of("}", cfg.Function.ToString()));
+                // _code.Add(EmptyLine);
+                _code.Add(cfgCodeBlock);
                 _scopeStack.Pop();
             }
 
@@ -250,11 +235,19 @@ int _checkIndex(a, i) {
 
             if (HasArrays) output += ArrayMacros;
 
-            output += _code.ToString();
+            output += string.Join("\n\n", _code);
 
             return output; //string.Join("\n", _code);
         }
 
+        private CodeBlock GetFreeable()
+        {
+            var code = new CodeBlock();
+            foreach (var t in _freeable[CurrentScope]) code.Add(CodeLine.Of($"_destroy({t});"));
+
+            return code;
+        }
+        
         public CodeBlock CreateStatement(Node node)
         {
             return node switch
@@ -313,7 +306,7 @@ int _checkIndex(a, i) {
             // TODO: skip this if value
 
             output.Add(CodeLine.Of($"_array({type}) {temp.Representation};"));
-            output.Add(CodeLine.Of($"_initArray({temp.Representation}, {temp.Size});"));
+            output.Add(CodeLine.Of($"_initArray({temp.Representation}, {sizeStr});"));
             AddFreeable(temp);
 
             return output;
@@ -520,8 +513,11 @@ int _checkIndex(a, i) {
 
         public CodeBlock ReturnStatement(ReturnStatementNode node)
         {
-            var (t, code) = ComputeTemporary(node.Expression);
+            var code = GetFreeable();
+            
+            var (t, expressionCode) = ComputeTemporary(node.Expression);
 
+            code.Add(expressionCode);
             code.Add(CodeLine.Of($"return {t.Name};"));
             return code;
         }
@@ -727,19 +723,7 @@ int _checkIndex(a, i) {
 
             return (tempVar, output);
         }
-
-        public List<dynamic> UnrollBinaryNode(BinaryOpNode node)
-        {
-            var result = new List<dynamic>();
-            var first = true;
-            var _node = node;
-
-            var visitor = new ExpressionVisitor(CurrentScope);
-            var value = node.Accept(visitor);
-
-            return result;
-        }
-
+        
         public (IVariable, CodeBlock) CreateTemporaryFromExpression(BinaryOpNode node)
         {
             var output = new CodeBlock();

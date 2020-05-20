@@ -438,12 +438,15 @@ namespace Parse
             
             if (p.Length < 2 || p[1] == null) return p[0];
 
+            var Left = WrapLValue(p[0]);
+            var Right = p.Length < 3 ? WrapLValue(p[3]) : Expr(p.Skip(2).ToArray());
+
             return new BinaryOpNode
             {
-                Left = WrapLValue(p[0]),
+                Left = Left, // WrapLValue(p[0]),
                 Op = OperatorTypeFromToken(p[1].Content),
                 Token = p[1], 
-                Right = WrapLValue(p[2]),
+                Right = Right, // WrapLValue(p[2]),
                 Type = new SimpleTypeNode() // TODO (?)
             };
         }

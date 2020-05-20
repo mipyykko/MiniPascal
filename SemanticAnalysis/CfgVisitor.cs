@@ -21,7 +21,7 @@ namespace ScopeAnalyze
         public CfgVisitor(Scope scope, List<CFG> result) : base(scope)
         {
             _result = result;
-            _blockStack.Push(CreateBlock());
+            _blockStack.Push(null); //CreateBlock());
             _childBlockStack.Push(null);
         }
 
@@ -30,7 +30,7 @@ namespace ScopeAnalyze
             var block = new Block
             {
                 Index = NextBlockId(),
-                Parents = new List<Block>{ CurrentBlock }
+                Parents = new List<Block>() // { CurrentBlock }
                 //Parents = parents ?? new List<Block>()
             };
 
@@ -53,7 +53,7 @@ namespace ScopeAnalyze
                 Expression = expression,
                 TrueBlock = trueBlock,
                 FalseBlock = falseBlock,
-                Parents = new List<Block>{ CurrentBlock }
+                Parents = new List<Block>() // { CurrentBlock }
                 //Parents = parents ?? new List<Block>()
             };
 
@@ -80,10 +80,14 @@ namespace ScopeAnalyze
 
             return statements;
         }
+
+        private void CheckBlockStack()
+        {
+            if (CurrentBlock == null) _blockStack.Push(CreateBlock());
+        }
         
         public override dynamic Visit(ProgramNode node)
         {
-            //node.MainBlock.Accept(this);
             var mainVisitor = new CfgVisitor(CurrentScope, _result);
             mainVisitor.Visit((FunctionDeclarationNode) node.MainBlock);
             // _result.AddRange(mainVisitor._result);
@@ -101,6 +105,8 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(StatementListNode node)
         {
+            CheckBlockStack();
+
             var statements = FlattenBranchNode(node);
             foreach (var statement in statements)
             {
@@ -157,7 +163,11 @@ namespace ScopeAnalyze
         public override dynamic Visit(IfNode node)
         {
             var trueBlock = CreateBlock();
-            var falseBlock = node.FalseBranch is NoOpNode ? null : CreateBlock();
+            Block falseBlock = null;
+            if (!(node.FalseBranch is NoOpNode))
+            {
+                falseBlock = CreateBlock();
+            }
             var afterBlock = CreateBlock();
 
             trueBlock.AddChild(afterBlock);
@@ -264,7 +274,8 @@ namespace ScopeAnalyze
             CurrentBlock.Child = null;// . Children.Clear();
 
             CurrentBlock.AddStatement(node);
-
+            CurrentBlock.Returned = true;
+            
             return null;
         }
 
@@ -313,7 +324,6 @@ namespace ScopeAnalyze
         public override dynamic Visit(ValueOfNode node)
         {
             return null;
-            throw new System.NotImplementedException();
         }
 
         public override dynamic Visit(ErrorNode node)

@@ -290,7 +290,7 @@ namespace Parse
                 SimpleExprOrTerm),
             Rule.Of(StatementType.SimpleExprCont, Production.EpsilonProduction, Collect.None, null),
             Rule.Of(StatementType.SimpleExprCont,
-                Production.Of(StatementType.AddingOperator, StatementType.SignTerm, StatementType.SimpleExprCont),
+                Production.Of(StatementType.AddingOperator, StatementType.Term, StatementType.SimpleExprCont),
                 Collect.Of(true, true, true),
                 Flatten),
             Rule.Of(StatementType.Term,

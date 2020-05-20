@@ -174,7 +174,7 @@ begin
   
 end.
 ";
-            Context.Source = Text.Of(program2);
+            Context.Source = Text.Of(program7);
 
             var s = new Scanner();
             var p = new Parser(s);

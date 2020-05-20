@@ -10,20 +10,17 @@ namespace Common
         public List<Block> Parents;
         public Block Child;
         public List<Node> Statements = new List<Node>();
-        public Node Node;
+        public bool Returned;
 
         public void AddParent(Block b)
         {
             Parents.Add(b);
-            //Parent = b;
-            // foreach (var parent in Parents) parent.Children.Add(this);
         }
 
         public void AddChild(Block b)
         {
             Child = b;
             b?.Parents.Add(this);
-            // Children.Add(b);
         }
 
         public void AddBranch(BranchBlock b)
@@ -32,13 +29,19 @@ namespace Common
             b?.TrueBlock.Parents.Append(this);
             b?.FalseBlock.Parents.Append(this);
         }
-        
-        public void AddStatement(Node n) => Statements.Add(n);
-        public void AddStatements(IEnumerable<Node> l) => Statements.AddRange(l);
+
+        public void AddStatement(Node n)
+        {
+            if (!Returned) Statements.Add(n);
+        }
+        public void AddStatements(IEnumerable<Node> l)
+        {
+            if (!Returned) Statements.AddRange(l);
+        }
 
         public override string ToString()
         {
-            return $"{string.Join("\n", Statements)}";
+            return $"{Index}: {(Statements.Count > 0 ? string.Join("\n", Statements) : "(empty block)")}";
         }
     }        
     
@@ -51,7 +54,7 @@ namespace Common
         
         public override string ToString()
         {
-            return "";//$"{string.Join("\n", Statements)}\n{TrueBlock}-{FalseBlock}";
+            return $"{Index}: {Expression}\n{TrueBlock} {FalseBlock}";
         }
 
     }

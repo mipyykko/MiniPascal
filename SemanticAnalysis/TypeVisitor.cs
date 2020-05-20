@@ -376,8 +376,8 @@ namespace ScopeAnalyze
                 {
                     var size = at.Size.Accept(this);
 
-                    //if (size != PrimitiveType.Integer)
-                    //    throw new Exception($"array {id} size must be an integer expression");
+                    if (size != PrimitiveType.Integer)
+                        throw new Exception($"array {id} size must be an integer expression");
                 }
             }
 
@@ -572,6 +572,10 @@ namespace ScopeAnalyze
             var lValueType = node.LValue.Accept(this);
             node.Expression.Accept(this);
 
+            if (lValueType != PrimitiveType.Integer)
+            {
+                throw new Exception("type error: array index must be an integer expression");
+            }
             var expressionType = node.Expression is NoOpNode ? null : node.Expression.Type;
             
             /*if (expressionType == null)
