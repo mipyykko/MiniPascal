@@ -190,24 +190,10 @@ namespace ScopeAnalyze
             return null;
         }
 
-        public dynamic VisitFunctionOrProcedureDeclarationNode(FunctionOrProcedureDeclarationNode node)
+        public override dynamic Visit(FunctionDeclarationNode node)
         {
             var id = node.Id.Accept(this);
 
-            /*if (node is ProcedureDeclarationNode)
-            {
-                if (!CurrentScope.SymbolTable.AddSymbol(new UserFunction
-                {
-                    Name = id,
-                    Node = node
-                }))
-                {
-                    throw new Exception($"procedure {id} already declared");
-                };
-                CreateScope(ScopeType.Procedure);
-            }
-            else
-            {*/
             var type = node.Type.Accept(this);
 
             var functionVariable = new UserFunctionVariable
@@ -267,16 +253,6 @@ namespace ScopeAnalyze
             ExitScope();
 
             return null;
-        }
-
-        public override dynamic Visit(ProcedureDeclarationNode node)
-        {
-            return VisitFunctionOrProcedureDeclarationNode(node);
-        }
-
-        public override dynamic Visit(FunctionDeclarationNode node)
-        {
-            return VisitFunctionOrProcedureDeclarationNode(node);
         }
 
         public override dynamic Visit(ParameterNode node)

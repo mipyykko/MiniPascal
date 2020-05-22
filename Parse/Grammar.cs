@@ -493,10 +493,38 @@ namespace Parse
         {
             var unused = Rules.Select(r => r.Name).ToHashSet();
 
-            foreach (var rule in Rules)
-                Console.WriteLine(
-                    $"{rule.Name} -> {string.Join(" ", rule.Production.Items.Select(i => i is Production.Epsilon ? "" : i is StatementType ? i : i.ToString().ToLower()).ToArray())}.");
+            // grammophone output
+            //foreach (var rule in Rules)
+            //    Console.WriteLine(
+            //        $"{rule.Name} -> {string.Join(" ", rule.Production.Items.Select(i => i is Production.Epsilon ? "" : i is StatementType ? i : i.ToString().ToLower()).ToArray())}.");
 
+            var ruleDictionary = new Dictionary<string, List<string>>();
+
+            foreach (var rule in Rules)
+            {
+                var ruleName = rule.Name.ToString();
+                if (!ruleDictionary.ContainsKey(ruleName))
+                {
+                    ruleDictionary[ruleName] = new List<string>();
+                }
+                ruleDictionary[ruleName].Add(string.Join(
+                    "\\ ", 
+                    rule.Production.Items.Select(
+                        i => i switch
+                        {
+                            Production.Epsilon => "\\varepsilon",
+                            StatementType _ => $"<{i}>",
+                            TokenType _ => $"<{i}>",
+                            KeywordType _ => $"\\texttt{{{i}}}",
+                            _ => i.ToString().ToLower()
+                        }).ToArray())
+                    );
+            }
+
+            foreach (var (name, productions) in ruleDictionary)
+            {
+                Console.WriteLine($"&<{name}>&\\quad &::= &\\quad &{string.Join("\\\\ \n&&\\quad &\\quad| &\\quad &", productions)} \\\\");
+            }
             foreach (var rule in Rules)
             {
                 NonTerminals.Add(rule.Name);

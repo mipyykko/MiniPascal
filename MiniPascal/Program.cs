@@ -174,7 +174,7 @@ begin
   
 end.
 ";
-            Context.Source = Text.Of(program7);
+            Context.Source = Text.Of(program2);
 
             var s = new Scanner();
             var p = new Parser(s);
@@ -186,7 +186,7 @@ end.
              * - check array sizes where the expression is possible to evaluate
              * - check for array type compatibility where array size is known      
              */
-            var cfg = ScopeAnalyzer.Analyze(v);
+            var cfg = SemanticAnalyzer.Analyze(v);
 
             Console.WriteLine(v.AST());
 
@@ -194,7 +194,7 @@ end.
             {
               ReferenceLoopHandling = ReferenceLoopHandling.Ignore
             }));*/
-            Console.WriteLine(new Generator2(cfg).Generate());
+            Console.WriteLine(new Generator(cfg).Generate());
             // Console.WriteLine(v.AST());
         }
     }

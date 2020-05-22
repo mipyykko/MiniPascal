@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Common;
 using Common.AST;
-using Scan;
-using static Common.Util;
 
 namespace Parse
 {
@@ -140,6 +138,7 @@ namespace Parse
             else
             {
                 n.Id = id;
+                n.Token = id.Token;
             }
             // if (n is IdNode) n.Id = id;
 
@@ -164,6 +163,7 @@ namespace Parse
                 // if (n == null) return id;
                 case CallNode _:
                     n.Id = id;
+                    n.Token = id.Token;
 
                     return n;
                 case List<Node> _:

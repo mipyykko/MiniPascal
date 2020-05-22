@@ -50,6 +50,7 @@ namespace ScopeAnalyze
             var fnNode = (FunctionDeclarationNode) fn.Node;
 
             node.Function = fnNode;
+            node.Variable = fn;
             
             for (var i = 0; i < node.Arguments.Count; i++)
             {
@@ -97,6 +98,8 @@ namespace ScopeAnalyze
 
             if (left == null || right == null) return null;
 
+            // TODO: this has no division by zero check and what have you
+            
             return op switch
             {
                 "+" when !(left is bool) => (left + right),
@@ -205,15 +208,6 @@ namespace ScopeAnalyze
                     CurrentScope.SymbolTable.UpdateSymbol(variable);
                 }
             }
-
-            return null;
-        }
-
-        public override dynamic Visit(ProcedureDeclarationNode node)
-        {
-            EnterScope(node.Statement.Scope);
-            node.Statement.Accept(this);
-            ExitScope();
 
             return null;
         }

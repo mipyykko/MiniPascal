@@ -9,7 +9,7 @@ namespace Common
 
         public override string ToString()
         {
-            return $"Function {Scope}: {Variable}";
+            return $"Function {Variable}";
         }
     }
 }

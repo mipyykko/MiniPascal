@@ -86,6 +86,8 @@ namespace Common
         public string Content { get; private set; }
         public SourceInfo SourceInfo { get; private set; }
 
+        public int Line => SourceInfo?.LineRange.Line ?? -1;
+        
         public Token(TokenType type, KeywordType kw, string content, SourceInfo sourceInfo)
         {
             Type = type;

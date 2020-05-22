@@ -54,7 +54,7 @@ namespace Common.AST
 
         public override string ToString()
         {
-            return $"{Name} {Id} {string.Join(", ", DeclarationBlock)} {MainBlock}";
+            return $"{Name} {Id} {DeclarationBlock} {MainBlock}";
         }
 
         public override string AST(int depth = 0)
@@ -136,7 +136,7 @@ namespace Common.AST
         public override string ToString()
         {
             // {(IndexExpression is NoOpNode ? "" : $"[{IndexExpression}]"
-            return $"{Name} {LValue} {Expression}";
+            return $"{Name} {LValue} = {Expression}";
         }
 
         public override string AST(int depth = 0)
@@ -153,7 +153,7 @@ namespace Common.AST
         public override string Name => "Call";
 
         public List<Node> Arguments { get; set; } // ExpressionNode
-        public FunctionOrProcedureDeclarationNode Function { get; set; }
+        public FunctionDeclarationNode Function { get; set; }
 
         public override dynamic Accept(Visitor visitor)
         {
@@ -184,12 +184,9 @@ namespace Common.AST
         public new Variable Variable { get; set; }
     }
     
-    public class VariableNode : LValueNode // IdNode
+    public class VariableNode : LValueNode
     {
         public override string Name => "Variable";
-
-        // public Node IndexExpression { get; set; } = new NoOpNode();
-        // public VariableNode ReferenceNode { get; set; }
 
         public override dynamic Accept(Visitor visitor)
         {
@@ -392,6 +389,12 @@ namespace Common.AST
     public abstract class ValueNode : Node
     {
         public dynamic Value { get; set; }
+
+        public override string ToString()
+        {
+            return base.ToString();
+        }
+
         public override string AST(int depth = 0)
         {
             return $"{Spaces(depth)}[{Name}\n" +
@@ -561,43 +564,13 @@ namespace Common.AST
         }
     }
 
-    public abstract class FunctionOrProcedureDeclarationNode : IdNode
+    public class FunctionDeclarationNode : IdNode
     {
+        public override string Name => "FunctionDeclaration";
+
         public Node Statement { get; set; }
         public List<Node> Parameters { get; set; } // ParameterNode
         public Function Function { get; set; }
-    }
-
-    public class ProcedureDeclarationNode : FunctionOrProcedureDeclarationNode
-    {
-        public override string Name => "ProcedureDeclaration";
-
-        public override dynamic Accept(Visitor visitor)
-        {
-            return visitor.Visit(this);
-        }
-
-        public override string ToString()
-        {
-            return $"{Name} {Id}({string.Join(", ", Parameters)}) {Statement}";
-        }
-
-        public override string AST(int depth = 0)
-        {
-            var sb = new StringBuilder($"{Spaces(depth)}[{Name}\n" +
-                                       $"{Id.AST(depth + 1)}");
-
-            foreach (var s in Parameters) sb.Append(s.AST(depth + 1));
-
-            sb.Append($"{Statement.AST(depth + 1)}{Spaces(depth)}]\n");
-
-            return sb.ToString();
-        }
-    }
-
-    public class FunctionDeclarationNode : FunctionOrProcedureDeclarationNode
-    {
-        public override string Name => "FunctionDeclaration";
 
         public override dynamic Accept(Visitor visitor)
         {
@@ -704,8 +677,7 @@ namespace Common.AST
 
         public override string ToString()
         {
-            return "arraytype"; // TODO: fix some weird bug 
-            // return $"{Name} {Token?.Content ?? ""}[{(Size is NoOpNode ? "" : Size.ToString())}] of {SubType}";
+            return $"{Name} [{(Size is NoOpNode ? "" : Size.ToString())}] of {SubType}";
         }
 
         public override string AST(int depth = 0)

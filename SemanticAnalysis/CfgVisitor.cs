@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using Common;
 using Common.AST;
 
@@ -7,13 +6,11 @@ namespace ScopeAnalyze
 {
     public class CfgVisitor : AnalyzeVisitor
     {
-        private Block _entry, _exit;
         private static int _blockIdx = 0;
-        private List<Block> _blocks = new List<Block>();
-        private Stack<Block> _blockStack = new Stack<Block>();
-        private Stack<Block> _childBlockStack = new Stack<Block>();
-        private Stack<Node> _nodes = new Stack<Node>();
-        private List<CFG> _result;
+        private readonly List<Block> _blocks = new List<Block>();
+        private readonly Stack<Block> _blockStack = new Stack<Block>();
+        private readonly Stack<Block> _childBlockStack = new Stack<Block>();
+        private readonly List<CFG> _result;
 
         private Block CurrentBlock => _blockStack.Count > 0 ? _blockStack.Peek() : null;
         private Block CurrentChildBlock => _childBlockStack.Count > 0 ? _childBlockStack.Peek() : null;
@@ -33,12 +30,6 @@ namespace ScopeAnalyze
                 Parents = new List<Block>() // { CurrentBlock }
                 //Parents = parents ?? new List<Block>()
             };
-
-            if (block.Index == 0)
-            {
-                _entry = block;
-                _exit = block;
-            }
 
             _blocks.Add(block);
 
@@ -64,7 +55,7 @@ namespace ScopeAnalyze
 
         private static int NextBlockId() => _blockIdx++;
 
-        private List<Node> FlattenBranchNode(BranchNode node)
+        private static IEnumerable<Node> FlattenBranchNode(BranchNode node)
         {
             var statements = new List<Node> {node.Left};
 
@@ -229,11 +220,6 @@ namespace ScopeAnalyze
             return null;
         }
 
-        public override dynamic Visit(ProcedureDeclarationNode node)
-        {
-            throw new System.NotImplementedException();
-        }
-
         public override dynamic Visit(FunctionDeclarationNode node)
         {
             var functionVisitor = new CfgVisitor(CurrentScope, _result);
@@ -271,7 +257,7 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(ReturnStatementNode node)
         {
-            CurrentBlock.Child = null;// . Children.Clear();
+            CurrentBlock.Child = null;
 
             CurrentBlock.AddStatement(node);
             CurrentBlock.Returned = true;

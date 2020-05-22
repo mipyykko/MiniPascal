@@ -6,7 +6,7 @@ using Common.Symbols;
 
 namespace ScopeAnalyze
 {
-    public class ScopeAnalyzer
+    public class SemanticAnalyzer
     {
         public static List<CFG> Analyze(Node n)
         {

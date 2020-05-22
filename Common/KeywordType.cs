@@ -23,6 +23,5 @@ namespace Common
         Return,
         Read,
         WriteLn,
-        Size
     }
 }

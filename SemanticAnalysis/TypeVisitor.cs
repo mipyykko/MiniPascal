@@ -173,7 +173,7 @@ namespace ScopeAnalyze
                 throw new Exception($"function or procedure {id} not declared");
             }
 
-            var callableNode = (FunctionOrProcedureDeclarationNode) callable.Node;
+            var callableNode = (FunctionDeclarationNode) callable.Node;
             node.Type = callableNode.Type;
             var callableParameters = callableNode.Parameters;
             
@@ -232,9 +232,7 @@ namespace ScopeAnalyze
             }
             // TODO: next up - check the argument types
 
-            var returnType = callableNode.Type.PrimitiveType;
-            // throw new NotImplementedException();
-            return returnType;
+            return callableNode.Type.PrimitiveType;
         }
 
         private static readonly OperatorType[] RelationalOperators =
@@ -384,18 +382,6 @@ namespace ScopeAnalyze
             return null;
         }
 
-        public override dynamic Visit(ProcedureDeclarationNode node)
-        {
-            EnterScope(node.Statement.Scope);
-            FunctionStack.Push(node);
-            node.Parameters.ForEach(p => p.Accept(this));
-            node.Statement.Accept(this);
-            FunctionStack.Pop();
-            ExitScope();
-
-            return PrimitiveType.Void;
-        }
-
         public override dynamic Visit(FunctionDeclarationNode node)
         {
             EnterScope(node.Statement.Scope);
@@ -441,7 +427,7 @@ namespace ScopeAnalyze
             var expressionType = node.Expression.Type.PrimitiveType;
             var expressionSubType = node.Expression.Type is ArrayTypeNode eat ? eat.SubType : PrimitiveType.Void;
 
-            if (!(node.Expression is NoOpNode) && currentNode is ProcedureDeclarationNode pn)
+            if (!(node.Expression is NoOpNode) && currentNode.Type.PrimitiveType == PrimitiveType.Void && expressionType != PrimitiveType.Void)
                 throw new Exception($"cannot return a value from procedure {id}");
 
             if (node.Expression is NoOpNode && expressionType != PrimitiveType.Void && currentNode is FunctionDeclarationNode fn)

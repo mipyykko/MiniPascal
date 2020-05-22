@@ -16,10 +16,9 @@ namespace Common.AST
         public abstract dynamic Visit(IfNode node);
         public abstract dynamic Visit(WhileNode node);
         public abstract dynamic Visit(VarDeclarationNode node);
-        public abstract dynamic Visit(ProcedureDeclarationNode node);
         public abstract dynamic Visit(FunctionDeclarationNode node);
         public abstract dynamic Visit(ParameterNode node);
-        public abstract dynamic Visit(TypeNode node); // TODO: should visit either array or simple
+        public abstract dynamic Visit(TypeNode node);
         public abstract dynamic Visit(SimpleTypeNode node);
         public abstract dynamic Visit(ArrayTypeNode node);
         public abstract dynamic Visit(ReturnStatementNode node);

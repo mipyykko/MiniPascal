@@ -40,6 +40,11 @@ namespace Common
             return symbol;
         }
 
+        public string ScopePath()
+        {
+            return $"{(Parent != null ? Parent.ScopePath() : "")}_{ScopeType}";
+        }
+        
         public override string ToString()
         {
             return $"{ScopeType}{(Parent != null ? $"->{Parent}" : "")}";

@@ -161,15 +161,6 @@ namespace ScopeAnalyze
             return null;
         }
 
-        public override dynamic Visit(ProcedureDeclarationNode node)
-        {
-            EnterScope(node.Scope);
-            node.Statement.Accept(this);
-            ExitScope();
-
-            return null;
-        }
-
         public override dynamic Visit(FunctionDeclarationNode node)
         {
             EnterScope(node.Scope);
