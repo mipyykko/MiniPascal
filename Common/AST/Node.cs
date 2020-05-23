@@ -136,7 +136,7 @@ namespace Common.AST
         public override string ToString()
         {
             // {(IndexExpression is NoOpNode ? "" : $"[{IndexExpression}]"
-            return $"{Name} {LValue} = {Expression}";
+            return $"{LValue} = {Expression}"; // $"{Name} {LValue} = {Expression}";
         }
 
         public override string AST(int depth = 0)
@@ -162,7 +162,7 @@ namespace Common.AST
 
         public override string ToString()
         {
-            return $"{Name} {Id}({string.Join(", ", Arguments)})";
+            return $"{Id}({string.Join(", ", Arguments)})"; // $"{Name} {Id}({string.Join(", ", Arguments)})";
         }
 
         public override string AST(int depth = 0)
@@ -195,7 +195,7 @@ namespace Common.AST
 
         public override string ToString()
         {
-            return $"{Name} {Id}";
+            return Id.ToString(); // $"{Name} {Id}";
         }
 
         public override string AST(int depth = 0)
@@ -221,7 +221,7 @@ namespace Common.AST
 
         public override string ToString()
         {
-            return $"{Name} {LValue}[{Expression}]";
+            return $"{LValue}[{Expression}]"; // $"{Name} {LValue}[{Expression}]";
         }
         
         public override string AST(int depth = 0)
@@ -248,7 +248,7 @@ namespace Common.AST
         
         public override string ToString()
         {
-            return $"{Name} {LValue}";
+            return $"{LValue}";
         }
         
         public override string AST(int depth = 0)
@@ -279,7 +279,7 @@ namespace Common.AST
 
         public override string ToString()
         {
-            return $"{Name} {Left} {Op} {Right}";
+            return $"({Left} {Token.Content} {Right})"; // $"{Name} {Left} {Op} {Right}";
         }
 
         public override string AST(int depth = 0)
@@ -304,7 +304,7 @@ namespace Common.AST
 
         public override string ToString()
         {
-            return $"{Name} {Op}{Expression}";
+            return $"{Op}{Expression}"; //$"{Name} {Op}{Expression}";
         }
 
         public override string AST(int depth = 0)
@@ -329,7 +329,7 @@ namespace Common.AST
 
         public override string ToString()
         {
-            return $"{Name} {Sign}{Expression}";
+            return $"{Sign}{Expression}"; // $"{Name} {Sign}{Expression}";
         }
 
         public override string AST(int depth = 0)
@@ -351,7 +351,7 @@ namespace Common.AST
 
         public override string ToString()
         {
-            return $"{Name} {LValue}";
+            return $"{LValue}.size";
         }
 
         public override string AST(int depth = 0)
@@ -375,7 +375,7 @@ namespace Common.AST
 
         public override string ToString()
         {
-            return $"{Name} {Token.Content}";
+            return Token.Content; // $"{Name} {Token.Content}";
         }
 
         public override string AST(int depth = 0)
@@ -392,7 +392,7 @@ namespace Common.AST
 
         public override string ToString()
         {
-            return base.ToString();
+            return Value.ToString();
         }
 
         public override string AST(int depth = 0)
@@ -431,6 +431,11 @@ namespace Common.AST
     public class StringValueNode : ValueNode
     {
         public override string Name => "StringValue";
+
+        public override string ToString()
+        {
+            return $"\"{Value.ToString()}\"";
+        }
 
         public override dynamic Accept(Visitor visitor)
         {

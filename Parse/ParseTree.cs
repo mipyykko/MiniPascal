@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using Common;
 using Common.AST;
 
@@ -132,8 +133,10 @@ namespace Parse
                 if (an.LValue is ArrayDereferenceNode adn)
                 {
                     adn.LValue.Id = id;
+                    adn.Token = id.Token;
                 }
                 an.LValue.Id = id;
+                an.Token = id.Token;
             }
             else
             {
@@ -215,7 +218,8 @@ namespace Parse
                 LValue = new ArrayDereferenceNode
                 {
                     LValue = new VariableNode(),
-                    Expression = index
+                    Expression = index,
+                    // Token = index.Token
                 },
                 Expression = expr
             };
@@ -250,14 +254,13 @@ namespace Parse
             var ids = UnwrapTreeNode(p[0]);
             var type = p[1];
 
-            var variables = new List<Node>();
-
             foreach (var id in ids) id.Type = type;
 
             return new VarDeclarationNode
             {
                 Type = type,
-                Ids = ids
+                Ids = ids,
+                Token = type.Token
             };
         }
 
@@ -386,7 +389,8 @@ namespace Parse
                 Type = type,
                 Size = size,
                 PrimitiveType = PrimitiveType.Array,
-                SubType = type.PrimitiveType
+                SubType = type.PrimitiveType,
+                Token = type.Token
             };
         }
 
@@ -630,26 +634,12 @@ namespace Parse
                     TokenType.StringValue => PrimitiveType.String,
                     TokenType.BooleanValue => PrimitiveType.Boolean,
                     _ => PrimitiveType.Void
-                }
+                },
+                Token = token
             };
             node.Value = value;
 
             return node;
-            /*return new LiteralNode
-            {
-                Token = token,
-                Type = new SimpleTypeNode
-                {
-                    PrimitiveType = token.Type switch
-                    {
-                        TokenType.IntegerValue => PrimitiveType.Integer,
-                        TokenType.RealValue => PrimitiveType.Real,
-                        TokenType.StringValue => PrimitiveType.String,
-                        TokenType.BooleanValue => PrimitiveType.Boolean,
-                        _ => PrimitiveType.Void
-                    }
-                }
-            };*/
         }
 
         /**
@@ -667,7 +657,8 @@ namespace Parse
             {
                 Expression = p[0],
                 TrueBranch = p[1],
-                FalseBranch = p.Length > 2 && p[2] != null ? p[2] : NoOpStatement
+                FalseBranch = p.Length > 2 && p[2] != null ? p[2] : NoOpStatement,
+                Token = p[0].Token
             };
         }
 

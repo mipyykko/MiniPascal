@@ -36,7 +36,7 @@ namespace ScopeAnalyze
             return block;
         }
 
-        private BranchBlock CreateBranchBlock(Node expression, Block trueBlock, Block falseBlock, List<Block> parents = null)
+        private BranchBlock CreateBranchBlock(Node expression, Block trueBlock, Block falseBlock, BranchBlockType type)
         {
             var block = new BranchBlock
             {
@@ -44,8 +44,8 @@ namespace ScopeAnalyze
                 Expression = expression,
                 TrueBlock = trueBlock,
                 FalseBlock = falseBlock,
-                Parents = new List<Block>() // { CurrentBlock }
-                //Parents = parents ?? new List<Block>()
+                Parents = new List<Block>(), // { CurrentBlock }
+                Type = type
             };
 
             _blocks.Add(block);
@@ -165,7 +165,7 @@ namespace ScopeAnalyze
             falseBlock?.AddChild(afterBlock);
             afterBlock.AddChild(CurrentChildBlock);
 
-            var ifBlock = CreateBranchBlock(node.Expression, trueBlock, falseBlock ?? afterBlock);
+            var ifBlock = CreateBranchBlock(node.Expression, trueBlock, falseBlock ?? afterBlock, BranchBlockType.If);
 
             CurrentBlock.AddBranch(ifBlock);
 
@@ -194,7 +194,7 @@ namespace ScopeAnalyze
 
             CurrentBlock.AddChild(tempBlock);
 
-            var branchBlock = CreateBranchBlock(node.Expression, statementBlock, afterBlock);
+            var branchBlock = CreateBranchBlock(node.Expression, statementBlock, afterBlock, BranchBlockType.While);
             tempBlock.Child = branchBlock;
             statementBlock.AddChild(tempBlock);
 

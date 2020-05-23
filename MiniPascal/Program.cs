@@ -145,36 +145,62 @@ function reverse(data : array[] of integer): array[] of integer;
 
 begin
   var i : integer;
-  i := data.size;
-  var B : array[i] of integer;
+  i := 0;
+  var B : array[data.size] of integer;
 
-  while i >= 0 do
+  while i < data.size do
   begin
-    B[data.size - i] := data[i];
-    i := i - 1;
+    B[(data.size - 1) - i] := data[i];
+    i := i + 1;
   end;
 
   return B;
 end;
 
 begin
-  var A : array[3] of integer;
-  A[0] := 1;
-  A[1] := 2;
-  A[2] := 3;
-
-  var B : array[3] of integer;
-  B := reverse(A);
+  var A : array[100] of integer;
 
   var i : integer;
   i := 0;
 
-  while i < B.size do
+  while i < A.size do
+  begin
+    A[i] := i * 2;
+    i := i + 1;
+  end;
+
+  var B : array[A.size] of integer;
+  B := reverse(A);
+
+  i := 0;
+
+  while i < B.size do 
+  begin
     writeln(B[i]);
+    i := i + 1;
+  end
   
 end.
 ";
-            Context.Source = Text.Of(program2);
+            var program8 = @"program BoolArray;
+
+begin
+  var A : array[] of boolean;
+  var B : array[] of integer;
+  var C : array[10] of integer;
+  var D : integer;
+  D := 2 * (1 + 3);
+  C[D] := 2;
+  A[B[C[D]]] := true;
+  read(B[0], C[0]);
+  if (D < 6) or (C[D] > 1) then
+    writeln(""yes"")
+end.";
+            var program9 = @"program A;
+begin
+end.
+";
+            Context.Source = Text.Of(program9);
 
             var s = new Scanner();
             var p = new Parser(s);

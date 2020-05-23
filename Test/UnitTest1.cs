@@ -88,10 +88,13 @@ namespace Test
         public void AssignOrCallStatementTests()
         {
             var id = new IdentifierNode();
-            var assignment = new AssignmentNode();
+            var assignment = new AssignmentNode
+            {
+                LValue = new VariableNode()
+            };
             var node = (AssignmentNode) ParseTree.AssignOrCallStatement(new dynamic[] {id, assignment});
             node.Should().Equals(assignment);
-            node.Id.Should().Equals(id);
+            node.LValue.Id.Should().Equals(id);
 
             var call = new CallNode();
             var node2 = (CallNode) ParseTree.AssignOrCallStatement(new dynamic[] {id, call});
@@ -123,9 +126,18 @@ namespace Test
                 {
                     Token = new Mock<Token>().Object
                 },
-                new LiteralNode
+                null
+            });
+            yield return new TestCaseData(typeof(ArrayDereferenceNode), new dynamic[]
+            {
+                new IdentifierNode
                 {
                     Token = new Mock<Token>().Object
+                },
+                new IntegerValueNode
+                {
+                    Token = new Mock<Token>().Object,
+                    Value = 0
                 }
             });
         }

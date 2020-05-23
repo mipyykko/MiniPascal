@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Common;
@@ -28,6 +29,32 @@ namespace ScopeAnalyze
             return null;
         }
 
+        public Node Replace(Node node)
+        {
+            return ReplaceBoolean(ReplaceCallNode(node));
+        }
+
+        public Node ReplaceBoolean(Node node)
+        {
+            if (!(node is VariableNode vn)) return node;
+
+            var id = vn.Id.Accept(this);
+            var variable = GetVariable(id);
+
+            if (!(variable is BuiltinVariable)) return node;
+
+            return new BooleanValueNode
+            {
+                Type = new SimpleTypeNode
+                {
+                    PrimitiveType = PrimitiveType.Boolean
+                },
+                Token = vn.Token,
+                Value = ((string) id).ToLower().Equals("true"),
+                Scope = vn.Scope,
+            };
+        }
+        
         public Node ReplaceCallNode(Node node)
         {
             if (!(node is CallNode)) return node;
@@ -73,6 +100,7 @@ namespace ScopeAnalyze
         {
             node.LValue.Accept(this);
             //node.IndexExpression.Accept(this);
+            node.Expression = ReplaceBoolean(node.Expression);
             node.Expression.Accept(this);
 
             return null;
@@ -85,8 +113,8 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(BinaryOpNode node)
         {
-            node.Left = ReplaceCallNode(node.Left);
-            node.Right = ReplaceCallNode(node.Right);
+            node.Left = Replace(node.Left);
+            node.Right = Replace(node.Right);
 
             node.Left.Accept(this);
             node.Right.Accept(this);
@@ -96,7 +124,7 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(UnaryOpNode node)
         {
-            node.Expression = ReplaceCallNode(node.Expression);
+            node.Expression = Replace(node.Expression);
             node.Expression.Accept(this);
 
             return null;
@@ -104,7 +132,7 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(ExpressionNode node)
         {
-            node.Expression = ReplaceCallNode(node.Expression);
+            node.Expression = Replace(node.Expression);
             node.Expression.Accept(this);
 
             return null;
@@ -128,7 +156,7 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(IfNode node)
         {
-            node.Expression = ReplaceCallNode(node.Expression);
+            node.Expression = Replace(node.Expression);
             node.TrueBranch = ReplaceCallNode(node.TrueBranch);
             node.FalseBranch = ReplaceCallNode(node.FalseBranch);
 
@@ -145,7 +173,7 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(WhileNode node)
         {
-            node.Expression = ReplaceCallNode(node.Expression);
+            node.Expression = Replace(node.Expression);
             node.Statement = ReplaceCallNode(node.Statement);
 
             node.Expression.Accept(this);
@@ -192,7 +220,7 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(ReturnStatementNode node)
         {
-            node.Expression = ReplaceCallNode(node.Expression);
+            node.Expression = Replace(node.Expression);
             node.Expression.Accept(this);
 
             return null;
@@ -200,7 +228,7 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(AssertStatementNode node)
         {
-            node.Expression = ReplaceCallNode(node.Expression);
+            node.Expression = Replace(node.Expression);
             node.Expression.Accept(this);
 
             return null;
@@ -213,7 +241,7 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(WriteStatementNode node)
         {
-            var newArguments = node.Arguments.Select(ReplaceCallNode).ToList();
+            var newArguments = node.Arguments.Select(Replace).ToList();
 
             node.Arguments = newArguments;
 

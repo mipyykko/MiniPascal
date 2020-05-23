@@ -374,8 +374,8 @@ namespace ScopeAnalyze
                 {
                     var size = at.Size.Accept(this);
 
-                    if (size != PrimitiveType.Integer)
-                        throw new Exception($"array {id} size must be an integer expression");
+                    if (size != null && size != PrimitiveType.Integer)
+                        throw new Exception($"array {id} size must be empty or an integer expression");
                 }
             }
 
@@ -554,15 +554,14 @@ namespace ScopeAnalyze
 
         public override dynamic Visit(ArrayDereferenceNode node)
         {
-            // node.LValue.Accept(this);
             var lValueType = node.LValue.Accept(this);
             node.Expression.Accept(this);
+            var expressionType = node.Expression.Type.PrimitiveType;
 
-            if (lValueType != PrimitiveType.Integer)
+            if (expressionType != PrimitiveType.Integer)
             {
                 throw new Exception("type error: array index must be an integer expression");
             }
-            var expressionType = node.Expression is NoOpNode ? null : node.Expression.Type;
             
             /*if (expressionType == null)
             {

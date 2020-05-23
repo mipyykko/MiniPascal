@@ -115,7 +115,7 @@ namespace CodeGeneration
   char* tmp = realloc(a.data, sizeof(*a.data) * a.internalSize); \
 } while (0);
 #define _indexError(a, i, l) do { \
-  printf(""index error on line %d: %d when size is %d\n"", i, l, a.internalSize); \
+  printf(""index error on line %d: %d when size is %d\n"", l, i, a.internalSize); \
   _destroy(a); \
   exit(1); \
 } while (0);
@@ -211,8 +211,10 @@ namespace CodeGeneration
                             Depth = blockCodeBlock.Depth
                         };
                         ifBlock.Add(code);
-                        ifBlock.Add(CodeLine.Of($"if ({t.Name}) goto L{bb.TrueBlock.Index};"));
-                        ifBlock.Add(CodeLine.Of($"goto L{bb.FalseBlock.Index};", "else/end while"));
+                        ifBlock.Add(CodeLine.Of($"if ({t.Name}) goto L{bb.TrueBlock.Index};",
+                            $"{bb.Type.ToString().ToLower()} {bb.Expression}",
+                            bb.Expression.Token.Line));
+                        ifBlock.Add(CodeLine.Of($"goto L{bb.FalseBlock.Index};", bb.Type == BranchBlockType.If ? "else" : "end while"));
 
                         blockCodeBlock.Add(ifBlock);
                     }
@@ -267,51 +269,9 @@ namespace CodeGeneration
         private CodeBlock GetFreeable()
         {
             var code = new CodeBlock();
-            foreach (var t in _freeable[CurrentScope]) code.Add(CodeLine.Of($"_destroy({t});"));
+            //foreach (var t in _freeable[CurrentScope]) code.Add(CodeLine.Of($"_destroy({t});"));
 
             return code;
-        }
-
-        private string SanitizeType(string s) => s.Replace("*", "s");
-
-        public CodeBlock ComputeArraySize(TemporaryVariable temp, VarDeclarationNode node)
-        {
-            var output = new CodeBlock();
-
-            var at = (ArrayTypeNode) node.Type;
-
-            var size = -1;
-            var type = _types[at.SubType];
-            var sizeStr = "";
-
-            switch (at.Size)
-            {
-                case NoOpNode _:
-                    temp.InternalSize = Constants.INITIAL_ARRAY_SIZE;
-                    temp.Dynamic = true;
-                    temp.Size = 0;
-                    sizeStr = $"{temp.InternalSize}";
-                    break;
-                case ValueNode vn:
-                    temp.Size = vn.Value;
-                    temp.InternalSize = size;
-                    sizeStr = $"{temp.Size}";
-                    break;
-                default:
-                {
-                    var (t, code) = ComputeTemporary(at.Size);
-                    output.Add(code);
-                    sizeStr = t.Representation; // SizeVariable(temp);
-                    break;
-                }
-            }
-            // TODO: skip this if value
-            _arrayDefinitions.Add($"typedef _array({type}, {SanitizeType(type)});");
-            output.Add(CodeLine.Of($"_array_{SanitizeType(type)} {temp.Representation};"));
-            output.Add(CodeLine.Of($"_initArray({temp.Representation}, {sizeStr});"));
-            AddFreeable(temp);
-
-            return output;
         }
 
         public CodeBlock CreateStatement(VarDeclarationNode node)
@@ -320,25 +280,55 @@ namespace CodeGeneration
 
             foreach (var id in node.Ids)
             {
-                var temp = NextTemporary;
+                var t = NextTemporary;
                 var v = new Variable
                 {
                     Name = id.Token.Content,
                     Scope = CurrentScope
                 };
                 
-                AddTemporary(v, temp);
+                AddTemporary(v, t);
 
                 if (node.Type is SimpleTypeNode)
                 {
-                    output.Add(CodeLine.Of($"{VarSignature(node, temp.Representation)};", id.Token.Content,
-                        id.Token.SourceInfo.LineRange.Line));
+                    output.Add(CodeLine.Of($"{VarSignature(node, t.Representation)};", id.Token.Content,
+                        id.Token.Line));
                 }
                 else
                 {
                     HasArrays = true;
-                    var code = ComputeArraySize(temp, node);
-                    output.Add(code);
+                    var at = (ArrayTypeNode) node.Type;
+
+                    var size = -1;
+                    var type = _types[at.SubType];
+                    var sizeStr = "";
+
+                    switch (at.Size)
+                    {
+                        case NoOpNode _:
+                            t.Dynamic = true;
+                            t.Size = 0;
+                            sizeStr = "0";
+                            break;
+                        case ValueNode vn:
+                            t.Size = vn.Value;
+                            sizeStr = $"{t.Size}";
+                            break;
+                        default:
+                        {
+                            var (sizeTemp, sizeCode) = ComputeTemporary(at.Size);
+                            output.Add(sizeCode);
+                            sizeStr = sizeTemp.Representation;
+                            break;
+                        }
+                    }
+                    // TODO: skip this if value
+                    _arrayDefinitions.Add($"typedef _array({type}, {at.SubType});");
+                    output.Add(CodeLine.Of($"_array_{at.SubType} {t.Representation};"));
+                    output.Add(CodeLine.Of($"_initArray({t.Representation}, {sizeStr});",
+                        $"{id}: array[{(at.Size is NoOpNode ? "" : at.Size.ToString())}] of {at.Type.Token.Content}",
+                        node.Token.Line));
+                    AddFreeable(t);
                 }
             }
 
@@ -357,27 +347,36 @@ namespace CodeGeneration
 
         public CodeBlock CreateStatement(AssignmentNode node)
         {
-            var output = new CodeBlock();
             var (temp, code) = StoreOrLoad(node.LValue);
+            var rhs = "";
 
             if (node.Expression is ValueNode vn)
             {
-                output.Add(code);
-                output.Add(CodeLine.Of($"{temp.Representation} = {GetValue(vn)};", $"{node.LValue.Id.Token.Content} = {vn.Token.Content}"));
+                rhs = $"{GetValue(vn)}";
             }
             else
             {
-                var (temp2, code2) = ComputeTemporary(node.Expression);
+                // TODO: delete old temp?
+                var (rhsTemp, expressionCode) = ComputeTemporary(node.Expression);
+                code.Add(expressionCode);
 
-                // TODO: del old temp?
-
-                output.Add(code);
-                output.Add(code2);
-                output.Add(
-                    CodeLine.Of($"{temp.Representation} = {temp2.Representation};", node.LValue.Id.Token.Content));
+                rhs = rhsTemp.Representation;
+            }
+            
+            if (node.LValue is ArrayDereferenceNode adn)
+            {
+                code.Add(CodeLine.Of($"_assign({temp.Name}, {((TemporaryArrayDereference) temp).Index}, {rhs}, {node.Token.Line});",
+                    $"{node.LValue.Id.Token.Content}[{adn.Expression}] = {node.Expression}",
+                    node.Token.Line));
+            }
+            else
+            {
+                code.Add(CodeLine.Of($"{temp.Representation} = {rhs};",
+                    $"{node.LValue.Id.Token.Content} = {node.Expression}",
+                    node.Token.Line));
             }
 
-            return output;
+            return code;
         }
 
         public CodeBlock CreateStatement(CallNode node)
@@ -407,7 +406,9 @@ namespace CodeGeneration
 
             var argString = string.Join(", ", argStrings);
 
-            code.Add(CodeLine.Of($"{node.Variable.Representation}({argString});"));
+            code.Add(CodeLine.Of($"{node.Variable.Representation}({argString});",
+                $"{node.Id}({string.Join(", ", node.Arguments)})",
+                node.Token.Line));
             return code; // TODO
         }
 
@@ -456,7 +457,9 @@ namespace CodeGeneration
             printString.Append(string.Join(" ", printfTypes));
             var argsString = string.Join(", ", args);
 
-            result.Add(CodeLine.Of($"printf(\"{printString}\\n\", {argsString});"));
+            result.Add(CodeLine.Of($"printf(\"{printString}\\n\", {argsString});",
+                $"writeln({string.Join(", ", node.Arguments)})",
+                node.Token.Line));
 
             return result;
         }
@@ -469,19 +472,16 @@ namespace CodeGeneration
             var scanfTypes = new List<string>();
             var result = new CodeBlock();
 
-            /* TODO: check if argument is arraydereference - if it is,
-             * create temporary, pass that temporary as argument
-             * and after scanf _{type}Assign it to array
-             */
             var dereferences = new List<(IVariable, IVariable)>();
 
             foreach (var arg in node.Variables)
             {
                 var (t, code) = ComputeTemporary(arg);
-                if (t is TemporaryArrayDereference)
+                if (arg is ArrayDereferenceNode adn)
                 {
                     var t2 = NextTemporary;
-                    result.Add(CodeLine.Of($"{VarSignature(arg, t2.Representation)};"));
+                    result.Add(CodeLine.Of($"{VarSignature(arg, t2.Representation)};",
+                        $"{adn}", adn.Token.Line));
                     dereferences.Add((t, t2));
                     args.Add(t2);
                 }
@@ -497,7 +497,9 @@ namespace CodeGeneration
             var readString = string.Join(" ", scanfTypes);
             var argsString = string.Join(", ", args.Select(a => $"&{a.Representation}"));
 
-            result.Add(CodeLine.Of($"scanf(\"{readString}\", {argsString});"));
+            result.Add(CodeLine.Of($"scanf(\"{readString}\", {argsString});",
+                $"read({string.Join(", ", node.Variables)}",
+                node.Token.Line));
 
             foreach (var (a, b) in dereferences)
                 result.Add(CodeLine.Of(
@@ -648,7 +650,7 @@ namespace CodeGeneration
 
                     // TODO: find some more reasonable way than the lines[0] thing as it outputs a bit wrong
                     var callCode = CreateStatement(n);
-                    code.Add(CodeLine.Of($"{t.Representation} = {callCode.Lines[0]}"));
+                    code.Add(CodeLine.Of($"{t.Representation} = {callCode.Lines[0].Code}"));
                     /*var args = new List<IVariable>();
 
                     foreach (var arg in n.Arguments)
@@ -688,7 +690,6 @@ namespace CodeGeneration
 
         public (IVariable, CodeBlock) StoreOrLoad(Node node)
         {
-            var output = new CodeBlock();
             // TODO: don't actually return value if not wrapped in valueof!
             if (node is ValueOfNode vof) return StoreOrLoad(vof.LValue);
 
@@ -704,9 +705,8 @@ namespace CodeGeneration
                     PrimitiveType = existing.SubType,
                     Index = index.Representation
                 };
-                output.Add(CodeLine.Of($"_checkIndex({existing.Representation}, {t.Index}, {adn.Token.Line});"));
-                output.Add(code); // TODO ?
-                return (t, output);
+                code.Add(CodeLine.Of($"_checkIndex({existing.Representation}, {t.Index}, {adn.Token.Line});"));
+                return (t, code);
             }
 
             if (node is ValueNode vn)
@@ -716,7 +716,7 @@ namespace CodeGeneration
                 return (new Literal
                 {
                     Value = vn
-                }, output);
+                }, new CodeBlock());
             }
 
 
@@ -773,7 +773,7 @@ namespace CodeGeneration
                     var size = -1;
                     var type = _types[at.SubType];
 
-                    return $"_array_{SanitizeType(type)} {name}";
+                    return $"_array_{at.SubType} {name}";
 
                     //$"_array({type}) {name}";
                     //return $"{type} *{name}";

@@ -51,11 +51,19 @@ namespace Common
         public Block TrueBlock;
         public Block FalseBlock;
         public Block AfterBlock;
+        public BranchBlockType Type;
         
         public override string ToString()
         {
             return $"{Index}: {Expression}\n{TrueBlock} {FalseBlock}";
         }
 
+    }
+
+    public enum BranchBlockType
+    {
+        Unknown,
+        If,
+        While
     }
 }
