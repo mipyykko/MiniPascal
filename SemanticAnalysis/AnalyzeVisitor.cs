@@ -48,11 +48,11 @@ namespace ScopeAnalyze
 
         protected IVariable GetVariable(string id, Scope s = null)
         {
-            if (s == null) s = CurrentScope;
+            s ??= CurrentScope;
 
             while (s != null)
             {
-                var sym = s.SymbolTable.GetSymbol(id);
+                var sym = s.SymbolTable.GetSymbol($"{id}_variable");
                 if (sym is Variable) return sym;
                 s = s.Parent;
             }
@@ -67,11 +67,11 @@ namespace ScopeAnalyze
 
         protected IVariable GetFunctionOrProcedure(string id, Scope s = null)
         {
-            if (s == null) s = CurrentScope;
+            s ??= CurrentScope;
 
             while (s != null)
             {
-                var sym = s.SymbolTable.GetSymbol(id);
+                var sym = s.SymbolTable.GetSymbol($"{id}_function");
                 if (sym is FunctionVariable) return sym;
                 s = s.Parent;
             }

@@ -32,6 +32,14 @@ namespace Common.AST
     {
         public override string Name => "NoOp";
 
+        public NoOpNode()
+        {
+            Type = new SimpleTypeNode
+            {
+                PrimitiveType = PrimitiveType.Void
+            };
+        }
+        
         public override dynamic Accept(Visitor visitor)
         {
             return visitor.Visit(this);

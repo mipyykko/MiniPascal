@@ -4,7 +4,7 @@ using CodeGeneration;
 using Scan;
 using Common;
 using Common.AST;
-using Newtonsoft.Json;
+using Common.Errors;
 using Parse;
 using ScopeAnalyze;
 
@@ -198,21 +198,33 @@ begin
 end.";
             var program9 = @"program A;
 begin
+  var a : string;
+  a := +""kissa"";
 end.
 ";
+            Context.ErrorService = new ErrorService();
             Context.Source = Text.Of(program9);
-
+        
             var s = new Scanner();
             var p = new Parser(s);
 
             var v = (ProgramNode) p.BuildTree();
             
+            if (v == null || Context.ErrorService.HasErrors())
+            {
+              Context.ErrorService.Throw();
+            }
             /*
              * TODO:
              * - check array sizes where the expression is possible to evaluate
              * - check for array type compatibility where array size is known      
              */
             var cfg = SemanticAnalyzer.Analyze(v);
+
+            if (Context.ErrorService.HasErrors())
+            {
+              Context.ErrorService.Throw();
+            }
 
             Console.WriteLine(v.AST());
 

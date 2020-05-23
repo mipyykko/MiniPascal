@@ -56,7 +56,7 @@ namespace ScopeAnalyze
                 new ExpressionVisitor(scope),
             };
 
-            foreach (var v in visitors) n.Accept(v);
+            foreach (var v in visitors) {n.Accept(v);}
 
             var cfgVisitor = new CfgVisitor(scope, new List<CFG>());
             var cfg = n.Accept(cfgVisitor);

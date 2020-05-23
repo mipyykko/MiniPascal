@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection.Metadata;
 using Common;
 using Common.AST;
+using Common.Errors;
 using Common.Symbols;
 
 namespace ScopeAnalyze
@@ -76,7 +77,12 @@ namespace ScopeAnalyze
             
             if (!CheckLHSType(lValueType, statementType))
             {
-                throw new Exception($"type error: can't assign {statementType} to {id} of type {lValueType}");
+                Context.ErrorService.Add(
+                    ErrorType.Unknown,
+                    node.LValue.Id.Token,
+                    $"type error: can't assign {statementType} to {id} of type {lValueType}"
+                );
+                // throw new Exception($"type error: can't assign {statementType} to {id} of type {lValueType}");
             }
             /*if (variable.PrimitiveType == PrimitiveType.Array)
             {
@@ -170,16 +176,30 @@ namespace ScopeAnalyze
 
             if (callable == null)
             {
-                throw new Exception($"function or procedure {id} not declared");
+                Context.ErrorService.Add(
+                    ErrorType.Unknown,
+                    node.Id.Token,
+                    $"function or procedure {id} not declared"
+                );
+                return PrimitiveType.Error;
+                // throw new Exception($"function or procedure {id} not declared");
             }
 
             var callableNode = (FunctionDeclarationNode) callable.Node;
             node.Type = callableNode.Type;
             var callableParameters = callableNode.Parameters;
-            
+
             if (node.Arguments.Count != callableParameters.Count)
-                throw new Exception(
-                    $"wrong number of parameters given for function or procedure {id}: expected {callableParameters.Count}, got {node.Arguments.Count}");
+            {
+                Context.ErrorService.Add(
+                    ErrorType.Unknown,
+                    node.Id.Token,
+                    $"wrong number of parameters given for function or procedure {id}: expected {callableParameters.Count}, got {node.Arguments.Count}"
+                );
+                return PrimitiveType.Error;
+            }
+            //throw new Exception(
+                //    $"wrong number of parameters given for function or procedure {id}: expected {callableParameters.Count}, got {node.Arguments.Count}");
 
             for (var i = 0; i < node.Arguments.Count; i++)
             {
@@ -208,17 +228,27 @@ namespace ScopeAnalyze
                 var parameterVariable = (Variable) GetVariable(parameterId, callableNode.Scope);
                 var parameterType = parameterVariable.PrimitiveType;
                 var parameterSubType = parameterVariable.SubType;
-                var parameterSize = -1;
+                var parameterSize = parameterVariable.Size;
 
                 if (parameterNode.Reference && !(arg is LValueNode))
-                    throw new Exception(
-                        $"wrong parameter type for {id} - {parameterId} expected a variable or an array dereference, got {arg}");
+                    Context.ErrorService.Add(
+                        ErrorType.Unknown,
+                        arg.Token,
+                        $"wrong parameter type for {id} - {parameterId} expected a variable or an array dereference, got {arg}"
+                    );
+                    //throw new Exception(
+                    //    $"wrong parameter type for {id} - {parameterId} expected a variable or an array dereference, got {arg}");
 
                 var (argType, argSubType, argSize) = GetArgumentInfo(arg);
 
                 if (argType != parameterType)
-                    throw new Exception(
-                        $"wrong parameter type for {id} - {parameterId}: expected {parameterType}, got {argType}");
+                    Context.ErrorService.Add(
+                        ErrorType.Unknown,
+                        arg.Token,
+                        $"wrong parameter type for {id} - {parameterId}: expected {parameterType}, got {argType}"
+                    );
+                    //throw new Exception(
+                    //    $"wrong parameter type for {id} - {parameterId}: expected {parameterType}, got {argType}");
 
                 if (argType != PrimitiveType.Array) continue;
 
@@ -226,11 +256,16 @@ namespace ScopeAnalyze
                     throw new Exception(
                         $"wrong parameter type for {id} - array {parameterId} expected to be of subtype {parameterSubType}, got {argSubType}");
 
-                if (parameterSize >= 0 && argSize != parameterSize)
-                    throw new Exception(
-                        $"incompatible array types: expected array of size {parameterSize}, got {argSize}");
+                // TODO: removed because we don't know the sizes for sure
+                /*if (parameterSize >= 0 && argSize != parameterSize)
+                    Context.ErrorService.Add(
+                        ErrorType.Unknown,
+                        arg.Token,
+                        $"incompatible array types: expected array of size {parameterSize}, got {argSize}"
+                    );*/
+                    //throw new Exception(
+                    //    $"incompatible array types: expected array of size {parameterSize}, got {argSize}");
             }
-            // TODO: next up - check the argument types
 
             return callableNode.Type.PrimitiveType;
         }
@@ -273,12 +308,24 @@ namespace ScopeAnalyze
 
             var ops = (OperatorType[]) PermittedOperations[left];
 
+            var type = left;
+            
             if (left != right || left == right && !ops.Contains(op))
-                throw new Exception($"type error: can't perform {left} {op} {right}");
-
-            var type = RelationalOperators.Contains(op)
-                ? PrimitiveType.Boolean
-                : left;
+            {
+                Context.ErrorService.Add(
+                    ErrorType.Unknown,
+                    node.Token,
+                    $"type error: can't perform {left} {op} {right}"
+                );
+                type = PrimitiveType.Error;
+            }
+            else
+            {
+                type = RelationalOperators.Contains(op)
+                    ? PrimitiveType.Boolean
+                    : left;
+            }
+            // throw new Exception($"type error: can't perform {left} {op} {right}");
 
             node.Type = new SimpleTypeNode
             {
@@ -293,8 +340,17 @@ namespace ScopeAnalyze
             var type = node.Expression.Accept(this);
 
             if (type != PrimitiveType.Boolean && op == OperatorType.Not ||
-                new[] { OperatorType.Add, OperatorType.Sub }.Contains(op) && type != PrimitiveType.Integer && type != PrimitiveType.Real)
-                throw new Exception($"invalid op {op} on {type}");
+                new[] {OperatorType.Add, OperatorType.Sub}.Contains(op) && type != PrimitiveType.Integer &&
+                type != PrimitiveType.Real)
+            {
+                Context.ErrorService.Add(
+                    ErrorType.Unknown,
+                    node.Token,
+                    $"invalid op {op} on {type}");
+                type = PrimitiveType.Error;
+            }
+
+            // throw new Exception($"invalid op {op} on {type}");
 
             node.Type = new SimpleTypeNode
             {
@@ -317,9 +373,26 @@ namespace ScopeAnalyze
             var variable = (Variable) GetVariable(id);
 
             if (variable.PrimitiveType != PrimitiveType.Array)
-                throw new Exception($"syntax error: tried to get size from non-array {id}");
-            if (node.LValue is ArrayDereferenceNode) 
-                throw new Exception($"syntax error: tried to get size from a non-array element of array {id}");
+            {
+                Context.ErrorService.Add(
+                    ErrorType.Unknown,
+                    node.LValue.Id.Token,
+                    $"syntax error: tried to get size from non-array {id}"
+                );
+                return PrimitiveType.Error;
+            }
+
+            //throw new Exception($"syntax error: tried to get size from non-array {id}");
+            if (node.LValue is ArrayDereferenceNode)
+            {
+                Context.ErrorService.Add(
+                    ErrorType.Unknown,
+                    node.LValue.Id.Token,
+                    $"syntax error: tried to get size from a non-array element of array {id}"
+                );
+                return PrimitiveType.Error;
+            }
+            // throw new Exception($"syntax error: tried to get size from a non-array element of array {id}");
 
             return PrimitiveType.Integer;
         }
@@ -339,7 +412,12 @@ namespace ScopeAnalyze
             var expressionType = node.Expression.Accept(this);
 
             if (expressionType != PrimitiveType.Boolean)
-                throw new Exception($"expected a boolean expression in if statement condition");
+                Context.ErrorService.Add(
+                    ErrorType.Unknown,
+                    node.Expression.Token,
+                    $"expected a boolean expression in if statement condition"
+                );
+                // throw new Exception($"expected a boolean expression in if statement condition");
 
             EnterScope(node.TrueBranch.Scope);
             node.TrueBranch.Accept(this);
@@ -356,7 +434,12 @@ namespace ScopeAnalyze
             var expressionType = node.Expression.Accept(this);
 
             if (expressionType != PrimitiveType.Boolean)
-                throw new Exception($"expected a boolean expression in while statement condition");
+                Context.ErrorService.Add(
+                    ErrorType.Unknown,
+                    node.Expression.Token,
+                    $"expected a boolean expression in while statement condition"
+                );
+                //throw new Exception($"expected a boolean expression in while statement condition");
 
             EnterScope(node.Statement.Scope);
             node.Statement.Accept(this);
@@ -375,7 +458,12 @@ namespace ScopeAnalyze
                     var size = at.Size.Accept(this);
 
                     if (size != null && size != PrimitiveType.Integer)
-                        throw new Exception($"array {id} size must be empty or an integer expression");
+                        Context.ErrorService.Add(
+                            ErrorType.Unknown,
+                            idNode.Token,
+                            $"array {id} size must be empty or an integer expression"
+                        );
+                        //throw new Exception($"array {id} size must be empty or an integer expression");
                 }
             }
 
@@ -386,7 +474,8 @@ namespace ScopeAnalyze
         {
             EnterScope(node.Statement.Scope);
             FunctionStack.Push(node);
-            node.Parameters.ForEach(p => p.Accept(this));
+            foreach (var par in node.Parameters) par.Accept(this);
+            // node.Parameters.ForEach(p => p.Accept(this));
             node.Statement.Accept(this);
             FunctionStack.Pop();
             ExitScope();
@@ -427,30 +516,57 @@ namespace ScopeAnalyze
             var expressionType = node.Expression.Type.PrimitiveType;
             var expressionSubType = node.Expression.Type is ArrayTypeNode eat ? eat.SubType : PrimitiveType.Void;
 
-            if (!(node.Expression is NoOpNode) && currentNode.Type.PrimitiveType == PrimitiveType.Void && expressionType != PrimitiveType.Void)
-                throw new Exception($"cannot return a value from procedure {id}");
+            if (!(node.Expression is NoOpNode) && currentNode.Type.PrimitiveType == PrimitiveType.Void &&
+                expressionType != PrimitiveType.Void)
+                Context.ErrorService.Add(
+                    ErrorType.Unknown,
+                    node.Expression.Token ?? currentNode.Id.Token,
+                    $"cannot return a value from procedure {id}"
+                );
+                //throw new Exception($"cannot return a value from procedure {id}");
 
-            if (node.Expression is NoOpNode && expressionType != PrimitiveType.Void && currentNode is FunctionDeclarationNode fn)
-                throw new Exception($"must return value of {type} from function {id}");
+                if (node.Expression is NoOpNode && expressionType != PrimitiveType.Void &&
+                    currentNode.Type.PrimitiveType != PrimitiveType.Void)
+                    Context.ErrorService.Add(
+                        ErrorType.Unknown,
+                        node.Expression.Token,
+                        $"must return value of {type} from function {id}"
+                    );
+                // throw new Exception($"must return value of {type} from function {id}");
 
             if (type is ArrayTypeNode at)
             {
                 if (expressionType != PrimitiveType.Array)
                 {
-                    throw new Exception(
-                        $"must return array of type {at.SubType} from function{id}, tried to return {expressionType}");
+                    Context.ErrorService.Add(
+                        ErrorType.Unknown,
+                        node.Expression.Token,
+                        $"must return array of type {at.SubType} from function{id}, tried to return {expressionType}"
+                    );
+                    //throw new Exception(
+                    //    $"must return array of type {at.SubType} from function{id}, tried to return {expressionType}");
                 }
                 if (at.SubType != expressionSubType)
                 {
-                    throw new Exception(
-                        $"must return array of type {at.SubType} from function{id}, tried to return array of {expressionSubType}");
+                    Context.ErrorService.Add(
+                        ErrorType.Unknown,
+                        node.Expression.Token,
+                        $"must return array of type {at.SubType} from function{id}, tried to return array of {expressionSubType}"
+                    );
+                    //throw new Exception(
+                    //    $"must return array of type {at.SubType} from function{id}, tried to return array of {expressionSubType}");
                 }
             }
             else
             {
-                if (expressionType != type.PrimitiveType)
-                    throw new Exception(
-                        $"must return value of type {type.PrimitiveType} from function{id}, tried to return {expressionType}");
+                if (expressionType != type.PrimitiveType && currentNode.Type.PrimitiveType != PrimitiveType.Void)
+                    Context.ErrorService.Add(
+                        ErrorType.Unknown,
+                        node.Expression.Token ?? currentNode.Id.Token,
+                        $"must return value of type {type.PrimitiveType} from function {id}, tried to return {expressionType}"
+                    );
+                //throw new Exception(
+                //        $"must return value of type {type.PrimitiveType} from function{id}, tried to return {expressionType}");
             }
 
             return null;
@@ -460,7 +576,13 @@ namespace ScopeAnalyze
         {
             var type = node.Expression.Accept(this);
 
-            if (type != PrimitiveType.Boolean) throw new Exception($"non-boolean assertion");
+            if (type != PrimitiveType.Boolean)
+                Context.ErrorService.Add(
+                    ErrorType.Unknown,
+                    node.Expression.Token,
+                    "non-boolean assertion"
+                );
+                // throw new Exception($"non-boolean assertion");
 
             return null;
         }
@@ -470,7 +592,12 @@ namespace ScopeAnalyze
             foreach (var v in node.Variables)
             {
                 if (!(v is LValueNode))
-                    throw new Exception($"read statement must have a variable as a parameter, got {v}");
+                    Context.ErrorService.Add(
+                        ErrorType.Unknown,
+                        v.Token,
+                        $"read statement can only contain variables as parameters, got {v}"
+                    );
+                    // throw new Exception($"read statement must have a variable as a parameter, got {v}");
                 v.Accept(this);
             }
 
@@ -502,7 +629,12 @@ namespace ScopeAnalyze
                 // var id = ((IdNode) argument).Id.Accept(this);
 
                 if (!WriteStatementTypes.Includes(argument.Type.PrimitiveType))
-                    throw new Exception($"invalid parameter of type {argument.Type.PrimitiveType} for writeln");
+                    Context.ErrorService.Add(
+                        ErrorType.Unknown,
+                        argument.Token,
+                        $"invalid parameter of type {argument.Type.PrimitiveType} for writeln"
+                    );
+                    // throw new Exception($"invalid parameter of type {argument.Type.PrimitiveType} for writeln");
             }
 
             return null;
@@ -522,7 +654,18 @@ namespace ScopeAnalyze
             // var index = node.IndexExpression.Accept(this);
             var variable = (Variable) GetVariable(id);
 
-            if (variable == null) throw new Exception($"variable {id} not defined");
+            if (variable == null)
+            {
+                // we've already reported this error, hopefully
+                /*Context.ErrorService.Add(
+                    ErrorType.Unknown,
+                    node.Id.Token,
+                    $"variable {id} not defined"
+                );*/
+                return PrimitiveType.Error;
+            }
+
+            // throw new Exception($"variable {id} not defined");
             /*if (index != null)
             {
                 if (variable.PrimitiveType != PrimitiveType.Array) throw new Exception($"can't index a non-array {id}");
@@ -560,7 +703,13 @@ namespace ScopeAnalyze
 
             if (expressionType != PrimitiveType.Integer)
             {
-                throw new Exception("type error: array index must be an integer expression");
+                Context.ErrorService.Add(
+                    ErrorType.Unknown,
+                    node.Expression.Token,
+                    $"type error: array index must be an integer expression"
+                );
+                lValueType = PrimitiveType.Error;
+                // throw new Exception("type error: array index must be an integer expression");
             }
             
             /*if (expressionType == null)

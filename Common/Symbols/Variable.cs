@@ -5,8 +5,10 @@ namespace Common.Symbols
 {
     public abstract class IVariable
     {
+        public virtual string Type => "";
+        
         public string Name;
-        public string ResolvedName => $"{Scope?.ScopePath()}_{Name}";
+        public string ResolvedName => $"{Name}_{Type}";
         public Scope Scope;
         public PrimitiveType PrimitiveType;
         public PrimitiveType SubType;
@@ -17,6 +19,7 @@ namespace Common.Symbols
 
     public class Variable : IVariable
     {
+        public override string Type => "variable";
         public Node ReferenceNode;
         public int Size = -1;
         public int InternalSize = -1;
@@ -64,6 +67,8 @@ namespace Common.Symbols
 
     public abstract class FunctionVariable : IVariable
     {
+        public override string Type => "function";
+        
         public List<Node> Parameters;
         
     }

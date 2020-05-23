@@ -3,6 +3,7 @@ using System.Data;
 using System.Linq;
 using Common;
 using Common.AST;
+using Common.Errors;
 using Common.Symbols;
 
 namespace ScopeAnalyze
@@ -104,7 +105,12 @@ namespace ScopeAnalyze
             {
                 "+" when !(left is bool) => (left + right),
                 "-" when left is int || left is float => (left - right),
-                "/" when left is int || left is float => (left / right),
+                "/" when (left is int || left is float) && right > 0 => (left / right),
+                "/" when (left is int || left is float) && right == 0 => Context.ErrorService.Add(
+                    ErrorType.Unknown,
+                    node.Token,
+                    $"division by zero"
+                ),
                 "*" when left is int || left is float => (left * right),
                 "%" when left is int => (left % right),
                 "and" when left is bool => (left && right),
@@ -115,7 +121,9 @@ namespace ScopeAnalyze
                 ">=" => (left >= right),
                 "<>" => (left != right),
                 "=" => (left == right),
-                _ => throw new Exception($"invalid operation {op} on {left} {right}")
+                _ => null
+                // error already reported before
+                //throw new Exception($"invalid operation {op} on {left} {right}")
             };
         }
 
@@ -131,7 +139,9 @@ namespace ScopeAnalyze
                 "+" when expression is int || expression is float => +expression,
                 "-" when expression is int || expression is float => -expression,
                 "not" when expression is bool => !expression,
-                _ => throw new Exception($"invalid operation {op} on {expression}")
+                _ => null
+                // error already reported
+                //throw new Exception($"invalid operation {op} on {expression}")
             };
         }
 
@@ -302,8 +312,8 @@ namespace ScopeAnalyze
             var index = node.Expression.Accept(this);
             var variable = (Variable) GetVariable(id);
             
-            if (index != null && variable.Size > 0 && (index < 0 || index >= variable.Size))
-                throw new Exception($"out of bounds error: {id} indexed with {index}");
+            //if (index != null && variable.Size > 0 && (index < 0 || index >= variable.Size))
+            //    throw new Exception($"out of bounds error: {id} indexed with {index}");
 
             return null;
         }

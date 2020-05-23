@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Common;
 using Common.AST;
+using Common.Errors;
 using Scan;
 using Rule = Common.Rule;
 using StatementType = Common.StatementType;
@@ -67,7 +68,7 @@ namespace Parse
             
             NextToken();
 
-            while (Stack.Any())
+            while (Stack.Any() && _inputToken.Type != TokenType.EOF)
             {
                 while (Stack.Peek() is Production.Epsilon)
                 {
@@ -123,7 +124,14 @@ namespace Parse
                         {
                             alreadyPutErrorToken = true;
                             error = true;
-                            Console.WriteLine($"error: expected {Stack.Peek()}, got {_inputToken} on line {Context.Source.GetLine(_inputToken.SourceInfo.LineRange.Line)}");
+                            var top = Stack.Peek();
+                            var expected = Predictions[top]?.Keys;
+                            var expectedString = expected != null
+                                ? expected.Count > 1
+                                    ? $"one of {string.Join(", ", expected)} for {top}"
+                                    : $"{expected[0]} as {top}"
+                                : top;
+                            AddError(_inputToken, $"error: expected {expectedString}, got {_inputToken}");
 
                             var left = GathererStack.Peek().Error();
                             while (left-- > 0) Stack.Pop();
@@ -178,6 +186,7 @@ namespace Parse
                             while (errorStack.Any()) GathererStack.Push(errorStack.Pop());
                         }
 
+                        if (_inputToken.Type == TokenType.EOF) break;
                         //break;
                     }
                 }
@@ -186,7 +195,7 @@ namespace Parse
                     GathererStack.Push(rule.Gatherer);
                 else if (!(rule.Production[0] is Production.Epsilon)) throw new Exception($"null gatherer for {rule}");
 
-                Stack.Pop();
+                if (Stack.Any()) Stack.Pop();
 
                 foreach (var prod in rule.Production.Items.Reverse()) Stack.Push(prod);
             }
@@ -207,12 +216,12 @@ namespace Parse
                 _ => token.Type// InputTokenType
             };
 
-            if (!Predictions.ContainsKey(top)) throw new Exception($"Grammar error: no prediction exists for {top}");
+            if (!Predictions.ContainsKey(top)) throw new Exception($"grammar error: no prediction exists for {top}");
 
             if (!Predictions[top].ContainsKey(toMatch))
             {
                 if (!Predictions[top].ContainsKey(Production.Epsilon))
-                     throw new Exception($"no prediction for {toMatch} in rule {top}");
+                     throw new Exception($"grammar error: no prediction for {toMatch} in rule {top}");
 
                 // Console.WriteLine($"--- ok, matching epsilon for {toMatch}");
                 return Predictions[top][Production.Epsilon];
@@ -250,6 +259,11 @@ namespace Parse
                 }
 
             }
+        }
+
+        private void AddError(Token token, string message)
+        {
+            Context.ErrorService.Add(ErrorType.Unknown, token, message);
         }
     }
 }

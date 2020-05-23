@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Common;
 using Common.AST;
+using Common.Errors;
 using Common.Symbols;
 
 namespace ScopeAnalyze
@@ -181,9 +182,13 @@ namespace ScopeAnalyze
                     Size = size,
                     Scope = CurrentScope
                 };
-                
+
                 if (!CurrentScope.SymbolTable.AddSymbol(variable))
-                    throw new Exception($"variable {id} already declared");
+                    Context.ErrorService.Add(
+                        ErrorType.Unknown,
+                        idNode.Token,
+                        $"variable {id} already declared"
+                    );
                 // ((IdNode) idNode).Variable = variable;
             }
 
@@ -203,9 +208,13 @@ namespace ScopeAnalyze
                 PrimitiveType = type,
                 Scope = CurrentScope
             };
-            
+
             if (!CurrentScope.SymbolTable.AddSymbol(functionVariable))
-                throw new Exception($"function {id} already declared");
+                Context.ErrorService.Add(
+                    ErrorType.Unknown,
+                    node.Id.Token,
+                    $"function {id} already declared"
+                );
 
             CreateScope(ScopeType.Function);
             var func = new Function
@@ -239,10 +248,15 @@ namespace ScopeAnalyze
                     Size = size,
                     Scope = CurrentScope
                 };
-                
+
                 if (!CurrentScope.SymbolTable.AddSymbol(formal))
-                    throw new Exception(
-                        $"{(parType == PrimitiveType.Void ? "procedure" : "function")} {id} parameter {parId} already declared");
+                    Context.ErrorService.Add(
+                        ErrorType.Unknown,
+                        par.Id.Token,
+                        $"{(parType == PrimitiveType.Void ? "procedure" : "function")} {id} parameter {parId} already declared"
+                    );
+                    //throw new Exception(
+                    //    $"{(parType == PrimitiveType.Void ? "procedure" : "function")} {id} parameter {parId} already declared");
                 par.Variable = formal;
             }
 
@@ -317,7 +331,13 @@ namespace ScopeAnalyze
             var id = node.Id.Accept(this);
             var variable = (Variable) GetVariable(id);
 
-            if (variable == null) throw new Exception($"undeclared variable {id}");
+            if (variable == null)
+                Context.ErrorService.Add(
+                    ErrorType.Unknown,
+                    node.Id.Token,
+                    $"undeclared variable {id}"
+                );
+                //throw new Exception($"undeclared variable {id}");}
             node.Variable = variable;
             return null;
         }
@@ -327,7 +347,13 @@ namespace ScopeAnalyze
             node.LValue.Accept(this);
             node.Expression.Accept(this);
 
-            if (node.LValue.Variable == null) throw new Exception($"undeclared variable {node.LValue.Id.Accept(this)}");
+            if (node.LValue.Variable == null) 
+                Context.ErrorService.Add(
+                    ErrorType.Unknown,
+                    node.LValue.Token,
+                    $"undeclared variable {node.LValue.Id.Accept(this)}"
+                );
+                // throw new Exception($"undeclared variable {node.LValue.Id.Accept(this)}");}
 
             node.Variable = node.LValue.Variable;
 

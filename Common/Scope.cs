@@ -47,7 +47,7 @@ namespace Common
         
         public override string ToString()
         {
-            return $"{ScopeType}{(Parent != null ? $"->{Parent}" : "")}";
+            return $"{(Parent != null ? $"->{Parent}" : "")}{ScopeType}";
         }
     }
 }

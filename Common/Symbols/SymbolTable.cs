@@ -13,20 +13,20 @@ namespace Common.Symbols
 
         public bool AddSymbol(IVariable variable)
         {
-            var name = variable.Name.ToLower();
+            var name = variable.ResolvedName.ToLower();
 
             if (_symbols.ContainsKey(name) &&
                 !(_symbols[name] is BuiltinFunctionVariable) &&
                 !(_symbols[name] is BuiltinVariable))
                 return false;
-            _symbols[variable.Name.ToLower()] = variable;
+            _symbols[name] = variable;
 
             return true;
         }
 
         public bool UpdateSymbol(IVariable variable)
         {
-            _symbols[variable.Name.ToLower()] = variable;
+            _symbols[variable.ResolvedName.ToLower()] = variable;
 
             return true;
         }

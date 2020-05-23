@@ -43,7 +43,17 @@ namespace Parse
             };
         }
 
-        private static Node NoOpStatement => new NoOpNode();
+        private static Node NoOpStatement(Token token = null) => new NoOpNode
+        {
+            Token = token ?? Token.Of(
+                TokenType.Unknown,
+                KeywordType.Unknown,
+                "",
+                SourceInfo.Of(
+                    (Context.Source.Pos, Context.Source.Pos),
+                    (Context.Source.Line, Context.Source.Pos, Context.Source.Pos)
+                ))
+        };
 
         /**
          * Expects
@@ -55,7 +65,7 @@ namespace Parse
         public static dynamic Program(dynamic[] p)
         {
             var id = p[0];
-            var declaration = p[1] is DeclarationListNode ? p[1] : NoOpStatement;
+            var declaration = p[1] is DeclarationListNode ? p[1] : NoOpStatement();
             var main = declaration is NoOpNode ? p[1] : p[2];
 
             return new ProgramNode
@@ -95,8 +105,8 @@ namespace Parse
         {
             return new DeclarationListNode
             {
-                Left = p.Length > 0 ? p[0] : NoOpStatement,
-                Right = p.Length > 1 && p[1] != null ? p[1] : NoOpStatement
+                Left = p.Length > 0 ? p[0] : NoOpStatement(),
+                Right = p.Length > 1 && p[1] != null ? p[1] : NoOpStatement()
             };
         }
 
@@ -110,8 +120,8 @@ namespace Parse
         {
             return new StatementListNode
             {
-                Left = p[0] != null ? p[0] : NoOpStatement,
-                Right = p.Length > 1 && p[1] != null ? p[1] : NoOpStatement
+                Left = p[0] != null ? p[0] : NoOpStatement(),
+                Right = p.Length > 1 && p[1] != null ? p[1] : NoOpStatement()
             };
         }
 
@@ -382,7 +392,7 @@ namespace Parse
             if (p[0] is ErrorNode) return p[0];
             
             var type = p[0] is SimpleTypeNode ? p[0] : p[1];
-            var size = p[0] is SimpleTypeNode ? NoOpStatement : p[0];
+            var size = p[0] is SimpleTypeNode ? NoOpStatement(type.Token) : p[0];
 
             return new ArrayTypeNode
             {
@@ -657,7 +667,7 @@ namespace Parse
             {
                 Expression = p[0],
                 TrueBranch = p[1],
-                FalseBranch = p.Length > 2 && p[2] != null ? p[2] : NoOpStatement,
+                FalseBranch = p.Length > 2 && p[2] != null ? p[2] : NoOpStatement(),
                 Token = p[0].Token
             };
         }
@@ -690,20 +700,20 @@ namespace Parse
             
             return new ReturnStatementNode
             {
-                Expression = p[0] ?? NoOpStatement
+                Expression = p[0] ?? NoOpStatement()
             };
         }
 
         public static Node WriteStatement(dynamic[] p)
         {
             // will be created in semantic analysis
-            return NoOpStatement;
+            return NoOpStatement();
         }
 
         public static Node ReadStatement(dynamic[] p)
         {
             // will be created in semantic analysis
-            return NoOpStatement;
+            return NoOpStatement();
         }
 
         public static Node AssertStatement(dynamic[] p)

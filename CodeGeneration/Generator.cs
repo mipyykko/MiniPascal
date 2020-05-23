@@ -442,7 +442,7 @@ namespace CodeGeneration
                         printString.Append(vn.Value);
                         continue;
                     }
-                    args.Add(GetValue(vn));
+                    args.Add($"{GetValue(vn)}");
                 }
                 else
                 {
@@ -456,8 +456,9 @@ namespace CodeGeneration
 
             printString.Append(string.Join(" ", printfTypes));
             var argsString = string.Join(", ", args);
-
-            result.Add(CodeLine.Of($"printf(\"{printString}\\n\", {argsString});",
+            var argString = $"\"{printString}\"{(argsString.Length > 0 ? $", {argsString}" : "")}";
+            
+            result.Add(CodeLine.Of($"printf({argString});",
                 $"writeln({string.Join(", ", node.Arguments)})",
                 node.Token.Line));
 
